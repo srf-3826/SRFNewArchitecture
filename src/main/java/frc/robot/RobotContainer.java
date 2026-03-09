@@ -1,0 +1,257 @@
+package frc.robot;
+
+import java.util.EnumMap;
+import java.util.List;
+
+import com.ctre.phoenix6.CANBus;
+
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.XboxController;
+import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.InstantCommand;
+import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
+
+import frc.robot.Constants.*;
+import frc.robot.commands.*;
+// Uncomment of any autos actually used
+// import frc.robot.autos.*;
+
+import frc.lib.sensors.GyroIO;
+import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
+import frc.robot.subsystems.SwerveSubsystem;
+import frc.robot.subsystems.ClimberSubsystem;
+import frc.robot.subsystems.IntakeSubsystem;
+import frc.robot.subsystems.ActionableSubsystem;
+import frc.robot.subsystems.ShooterSubsystem;
+import frc.robot.subsystems.VisionSubsystem;
+
+import frc.robot.ui.UI_Mode;
+import frc.robot.ui.SubsystemType;
+import frc.robot.ui.HelperContext;
+import frc.robot.ui.ModeManager;
+import frc.robot.ui.ActionManager;
+
+/**
+ * This class is where the bulk of the robot should be declared. Since Command-based is a
+ * "declarative" paradigm, very little robot logic should actually be handled in the {@link Robot}
+ * periodic methods (other than the scheduler calls). Instead, the structure of the robot (including
+ * subsystems, commands, and button mappings) should be declared here.
+ */
+public class RobotContainer {
+    private CANBus swerveCanbus = new CANBus(Constants.CAN_BUS_FOR_SWERVE);
+    private CANBus allElseCanbus = new CANBus(Constants.CAN_BUS_FOR_EVERYTHING_ELSE);
+
+    // Declare subsystem and supporting object handles
+    private GyroIO                      m_gyroIO;
+    private SwerveDrivePoseEstimator    m_swerveDrivePoseEstimator;
+ 
+    private SwerveSubsystem             m_swerveSubsystem;
+    private IntakeSubsystem             m_intakeSubsystem;
+    private ShooterSubsystem            m_shooterSubsystem;
+    private ClimberSubsystem            m_climberSubsystem;   
+    private VisionSubsystem             m_visionSubsystem;
+
+    // Declare UI Support managers and members
+    private ModeManager                 m_modeManager;
+    private ActionManager               m_actionManager;
+
+    private EnumMap<SubsystemType, ActionableSubsystem> m_subsystemMap;
+    private List<ActionableSubsystem>                   m_actionableSubsystems;
+    private HelperContext                               m_ctx;
+
+    // Declare choosable autonomous Commands and any other Commands used with ButtonBindings
+    private DoNothingCmd                m_doNothingCmd;
+
+    @SuppressWarnings("unused")
+    private SwerveParkCmd               m_parkCmd;
+
+    // Create sendable choosers for starting position and desired Auto routine
+    private static SendableChooser<Command> m_autoRoutineChooser = new SendableChooser<>();
+
+    // Declare CommandXboxController
+    private static CommandXboxController m_xbox = new CommandXboxController(0);
+
+    //  Constructor for the robot container. Contains subsystems, OI devices, and commands.
+    public RobotContainer() {
+        m_modeManager = new ModeManager(m_xbox);
+        m_gyroIO = new GyroIO(swerveCanbus, GC.PIGEON_2_CANID, GC.INVERT_GYRO);
+        m_swerveSubsystem = new SwerveSubsystem(swerveCanbus,
+                                                m_gyroIO,
+                                                m_visionSubsystem,
+                                                m_modeManager,
+                                                m_ctx);
+        m_intakeSubsystem = new IntakeSubsystem(allElseCanbus);
+        m_shooterSubsystem = new ShooterSubsystem(allElseCanbus);
+        m_climberSubsystem = new ClimberSubsystem(allElseCanbus);
+
+        m_swerveDrivePoseEstimator = new SwerveDrivePoseEstimator(SDC.SWERVE_KINEMATICS, 
+                                                                  m_gyroIO.getRotation2d(),
+                                                                  m_swerveSubsystem.getModulePositions(),
+                                                                  m_swerveSubsystem.getPose());
+        m_visionSubsystem = new VisionSubsystem(m_swerveDrivePoseEstimator, m_swerveSubsystem);
+
+        /*
+            Polling UI Support
+        */
+        // Build HelperContext
+ 
+        // Park Cmd exits on any joystick input, so need to pass it all joystick input lambdas
+        m_parkCmd = new SwerveParkCmd(m_swerveSubsystem,
+                                      () -> -m_xbox.getLeftY(),
+                                      () -> -m_xbox.getLeftX(),
+                                      () -> -m_xbox.getRightX());
+
+        m_swerveSubsystem.setDefaultCommand(new DefaultDriveCmd(m_xbox, 
+                                                                m_swerveSubsystem));
+        // DoNothing Cmd is a placeholder for Auto routines
+        m_doNothingCmd = new DoNothingCmd();
+
+        m_autoRoutineChooser.setDefaultOption("Do nothing", m_doNothingCmd);
+        SmartDashboard.putData("Autonomous Selection:", m_autoRoutineChooser);
+
+        initPollingUI();
+        configureButtonBindings();
+    }
+
+    /**************************************************************
+     * Getters for useful objects
+     **************************************************************/
+
+     // Mostly the gyro class object is passed to systems that need it
+     // but just in case, a (so far unused) getter is provided here.
+    public GyroIO getGyroIO() {
+        return m_gyroIO;
+    }
+
+    // The raw HID XboxCtrl is needed only by the RumbleCmd 
+    // Since that Cmd is a type of utility that can be invoked from
+    // any subsystem (or other Cmd) it is most efficient to let it
+    // fetch the single Xbox object in the system from RobotContainer 
+    // via this getter:
+    public static XboxController getHidXboxCtrl() {
+        return m_xbox.getHID();
+    }
+
+    /*
+     * Method to initialize all of the Polling UI support
+     */
+    private void initPollingUI() {
+         // Populate the SubsystemType map of ActionableSubsystems
+        m_subsystemMap.put(SubsystemType.DRIVE, m_swerveSubsystem);
+        m_subsystemMap.put(SubsystemType.VISION, m_visionSubsystem);
+        m_subsystemMap.put(SubsystemType.INTAKE, m_intakeSubsystem);
+        m_subsystemMap.put(SubsystemType.SHOOTER, m_shooterSubsystem);
+        m_subsystemMap.put(SubsystemType.CLIMBER, m_climberSubsystem);
+
+        // And the list of all ActionableSubsystems
+        m_actionableSubsystems = List.of(m_swerveSubsystem,
+                                         m_intakeSubsystem,
+                                         m_shooterSubsystem,
+                                         m_climberSubsystem);
+
+        m_ctx = new HelperContext( 
+            m_swerveSubsystem,
+            () -> m_swerveSubsystem.getPose(),
+            () -> m_swerveSubsystem.getYaw2d(),
+            () -> m_swerveSubsystem.getAutoDriveAssistSpeeds(),
+            m_visionSubsystem,
+            () -> m_visionSubsystem.getNearestTargetInfo(),
+            m_intakeSubsystem,
+            m_shooterSubsystem,
+            m_climberSubsystem,
+            m_modeManager
+        );
+
+        m_actionManager = new ActionManager(m_ctx, this);
+    }
+
+    // The following methods support ActionManager's need to get 
+    // a single ActionableSubsystem  when processing a UI Action
+    public ActionableSubsystem subsystemFor(SubsystemType type) {
+        return m_subsystemMap.get(type);
+    }
+
+    // And this method allows ActionManager to get a list of all
+    // actionableSubsystems
+     public List<ActionableSubsystem> allActionableSubsystems() {
+        return m_actionableSubsystems;
+    }
+
+    /***********************************************
+     * Update() drives the UI Polling every loop.
+     * It also ensures all Phoenix6 StatusSignals 
+     * in the various subsystems and gyroIO class 
+     * are kept refreshed.
+     * update() is called from robot.periodic(), 
+     * before CommandScheduler.run()
+     ************************************************/
+    public void update() {
+        // If ENABLED, poll all global mode sensitive UI Actions, 
+        // and handle lifeCycle of Continuous Actions
+        if (DriverStation.isTeleopEnabled()) {
+            m_actionManager.process(m_modeManager.getAction());
+            m_actionManager.update();        
+        }
+
+        // Now ensure all StatusSignals stay up to date.
+        m_gyroIO.update();
+        m_swerveSubsystem.update();
+        m_intakeSubsystem.update();
+        m_shooterSubsystem.update();
+        m_climberSubsystem.update();
+
+        // This would be a good place to log any RobotContainer data of interest
+    }
+
+    private void configureButtonBindings() {
+        // The assignments that govern the XboxController UI for the Rebuilt Season
+        // can mostly be found in ModeManager, where a polling architecture is implemented.
+        // But the ButtonBindings here create a hybrid UI, where the following pemanently assigned 
+        // and (almost) never ALT modified Actions are bound here:
+    
+        //    L Joystick Button     => Set Field Oriented drive. If already FO, ignore.
+        //    R Joystick Button     => Set Robot Oriented drive. If already RO, ignore.
+        //    Back                  => Zero the Gyro
+        //    POV_UP                => SCORING Mode
+        //    POV_DOWN              => DEFENSE Mode
+        //    POV_LEFT              => INTAKING Mode
+        //    POV_RIGHT             => NAVIGATING Mode
+        //    ALT + POV RIGHT       => (possibly) CLIMBING Mode
+
+        // Left joystick button sets field oriented driving
+        m_xbox.leftStick().onTrue(new InstantCommand(()-> m_swerveSubsystem.setFieldOriented(true)));
+        // Right joystick button sets robot oriented driving
+        m_xbox.rightStick().onTrue(new InstantCommand(()-> m_swerveSubsystem.setFieldOriented(false)));
+        
+        // Back button Zeros the Gyro
+        m_xbox.back().onTrue(new InstantCommand(() -> m_swerveSubsystem.zeroGyro()));
+
+        // D-Pad ordinal buttons set the currently active Mode
+        // Trigger ALT = m_xbox.rightBumper();             // Needed for special case is climbing mode is implemented.
+                                                        // Otherwise, comment this out!
+        m_xbox.povLeft().onTrue(new InstantCommand(()-> m_modeManager.setMode(UI_Mode.INTAKING)));
+        m_xbox.povUp().onTrue(new InstantCommand(()-> m_modeManager.setMode(UI_Mode.SHOOTING)));
+        m_xbox.povRight().onTrue(new InstantCommand(()-> m_modeManager.setMode(UI_Mode.NAVIGATING)));
+        // m_xbox.povRight().and(ALT.negate()).onTrue(new InstantCommand(()-> m_modeManager.setMode(Mode.NAVIGATING)));
+        // ALT.and(m_xbox.povRight()).onTrue(new InstantCommand(()-> m_modeManager.setMode(Mode.CLIMBING)));
+        m_xbox.povDown().onTrue(new InstantCommand(()-> m_modeManager.setMode(UI_Mode.DEFENSE)));
+    }
+
+    /*
+     * getSelectedAutoCommand is called from Robot.AutonomousInit(),
+     */
+    public Command getSelectedAutoCommand() {
+/*
+        Command selectedAuto = m_autoRoutineChooser.getSelected();
+
+        if (selectedAuto == null) {
+            selectedAuto = new DoNothingCmd();
+        }
+
+        return selectedAuto;
+*/
+        return null;
+    }
+}
