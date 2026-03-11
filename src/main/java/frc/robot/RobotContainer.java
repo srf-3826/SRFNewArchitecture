@@ -1,8 +1,5 @@
 package frc.robot;
 
-import java.util.EnumMap;
-import java.util.List;
-
 import com.ctre.phoenix6.CANBus;
 
 import edu.wpi.first.wpilibj.DriverStation;
@@ -23,15 +20,16 @@ import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import frc.robot.subsystems.SwerveSubsystem;
 import frc.robot.subsystems.ClimberSubsystem;
 import frc.robot.subsystems.IntakeSubsystem;
-import frc.robot.subsystems.ActionableSubsystem;
 import frc.robot.subsystems.ShooterSubsystem;
 import frc.robot.subsystems.VisionSubsystem;
 
 import frc.robot.ui.UI_Mode;
-import frc.robot.ui.SubsystemType;
-import frc.robot.ui.HelperContext;
+import frc.robot.ui.SystemActionManager;
+import frc.robot.ui.UIContext;
 import frc.robot.ui.ModeManager;
 import frc.robot.ui.ActionManager;
+import frc.robot.ui.ButtonActionManager;
+import frc.robot.ui.ButtonReader;
 
 /**
  * This class is where the bulk of the robot should be declared. Since Command-based is a
@@ -54,12 +52,13 @@ public class RobotContainer {
     private VisionSubsystem             m_visionSubsystem;
 
     // Declare UI Support managers and members
-    private ModeManager                 m_modeManager;
-    private ActionManager               m_actionManager;
+    private UIContext                                   m_ctx;
+    private ButtonReader                                m_buttonReader;
+    private ModeManager                                 m_modeManager;
+    private ButtonActionManager                         m_buttonActionManager;
+    private SystemActionManager                         m_systemActionManager;
+    private ActionManager                               m_actionManager;
 
-    private EnumMap<SubsystemType, ActionableSubsystem> m_subsystemMap;
-    private List<ActionableSubsystem>                   m_actionableSubsystems;
-    private HelperContext                               m_ctx;
 
     // Declare choosable autonomous Commands and any other Commands used with ButtonBindings
     private DoNothingCmd                m_doNothingCmd;
@@ -75,7 +74,6 @@ public class RobotContainer {
 
     //  Constructor for the robot container. Contains subsystems, OI devices, and commands.
     public RobotContainer() {
-        m_modeManager = new ModeManager(m_xbox);
         m_gyroIO = new GyroIO(swerveCanbus, GC.PIGEON_2_CANID, GC.INVERT_GYRO);
         m_swerveSubsystem = new SwerveSubsystem(swerveCanbus,
                                                 m_gyroIO,
@@ -138,20 +136,12 @@ public class RobotContainer {
      * Method to initialize all of the Polling UI support
      */
     private void initPollingUI() {
-         // Populate the SubsystemType map of ActionableSubsystems
-        m_subsystemMap.put(SubsystemType.DRIVE, m_swerveSubsystem);
-        m_subsystemMap.put(SubsystemType.VISION, m_visionSubsystem);
-        m_subsystemMap.put(SubsystemType.INTAKE, m_intakeSubsystem);
-        m_subsystemMap.put(SubsystemType.SHOOTER, m_shooterSubsystem);
-        m_subsystemMap.put(SubsystemType.CLIMBER, m_climberSubsystem);
-
-        // And the list of all ActionableSubsystems
-        m_actionableSubsystems = List.of(m_swerveSubsystem,
-                                         m_intakeSubsystem,
-                                         m_shooterSubsystem,
-                                         m_climberSubsystem);
-
-        m_ctx = new HelperContext( 
+        m_buttonReader = new ButtonReader(m_xbox);
+        m_buttonActionManager = new ButtonActionManager();
+        m_systemActionManager = new SystemActionManager();
+        m_modeManager = new ModeManager(m_buttonReader, m_buttonActionManager, m_systemActionManager);
+        
+        m_ctx = new UIContext( 
             m_swerveSubsystem,
             () -> m_swerveSubsystem.getPose(),
             () -> m_swerveSubsystem.getYaw2d(),
@@ -161,22 +151,11 @@ public class RobotContainer {
             m_intakeSubsystem,
             m_shooterSubsystem,
             m_climberSubsystem,
-            m_modeManager
+            m_modeManager,
+            m_systemActionManager
         );
 
-        m_actionManager = new ActionManager(m_ctx, this);
-    }
-
-    // The following methods support ActionManager's need to get 
-    // a single ActionableSubsystem  when processing a UI Action
-    public ActionableSubsystem subsystemFor(SubsystemType type) {
-        return m_subsystemMap.get(type);
-    }
-
-    // And this method allows ActionManager to get a list of all
-    // actionableSubsystems
-     public List<ActionableSubsystem> allActionableSubsystems() {
-        return m_actionableSubsystems;
+        m_actionManager = new ActionManager(m_ctx, m_buttonActionManager, m_systemActionManager);
     }
 
     /***********************************************
@@ -191,7 +170,7 @@ public class RobotContainer {
         // If ENABLED, poll all global mode sensitive UI Actions, 
         // and handle lifeCycle of Continuous Actions
         if (DriverStation.isTeleopEnabled()) {
-            m_actionManager.process(m_modeManager.getAction());
+            m_modeManager.pollButtons();
             m_actionManager.update();        
         }
 
@@ -228,16 +207,22 @@ public class RobotContainer {
         // Back button Zeros the Gyro
         m_xbox.back().onTrue(new InstantCommand(() -> m_swerveSubsystem.zeroGyro()));
 
+        //
         // D-Pad ordinal buttons set the currently active Mode
-        // Trigger ALT = m_xbox.rightBumper();             // Needed for special case is climbing mode is implemented.
-                                                        // Otherwise, comment this out!
-        m_xbox.povLeft().onTrue(new InstantCommand(()-> m_modeManager.setMode(UI_Mode.INTAKING)));
-        m_xbox.povUp().onTrue(new InstantCommand(()-> m_modeManager.setMode(UI_Mode.SHOOTING)));
-        m_xbox.povRight().onTrue(new InstantCommand(()-> m_modeManager.setMode(UI_Mode.NAVIGATING)));
-        // m_xbox.povRight().and(ALT.negate()).onTrue(new InstantCommand(()-> m_modeManager.setMode(Mode.NAVIGATING)));
-        // ALT.and(m_xbox.povRight()).onTrue(new InstantCommand(()-> m_modeManager.setMode(Mode.CLIMBING)));
-        m_xbox.povDown().onTrue(new InstantCommand(()-> m_modeManager.setMode(UI_Mode.DEFENSE)));
-    }
+        //
+    // If there are more than 4 modes, uncomment the following line:
+        // Trigger ALT = m_xbox.rightBumper();
+    // and insert as many lines as needed for the additional Modes, substituting desired ordinal
+    // direction(s) and Mode name(s) as needed, using this example:
+        // ALT.and(m_xbox.povRight()).onTrue(new InstantCommand(()-> m_modeManager.setMode(Mode.CLIMB)));
+    // Finally, fix the original 4 Modes to match the following format:
+        // m_xbox.povRight().and(ALT.negate()).onTrue(new InstantCommand(()-> m_modeManager.setMode(Mode.DRIVE)));
+
+        m_xbox.povLeft().onTrue( new InstantCommand(()-> m_modeManager.setMode(UI_Mode.INTAKE)));
+        m_xbox.povUp().onTrue(   new InstantCommand(()-> m_modeManager.setMode(UI_Mode.SHOOT)));
+        m_xbox.povRight().onTrue(new InstantCommand(()-> m_modeManager.setMode(UI_Mode.DRIVE)));
+        m_xbox.povDown().onTrue( new InstantCommand(()-> m_modeManager.setMode(UI_Mode.DEFENSE)));   
+     }
 
     /*
      * getSelectedAutoCommand is called from Robot.AutonomousInit(),

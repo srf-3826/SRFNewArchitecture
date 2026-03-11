@@ -1,124 +1,223 @@
-// Copyright (c) FIRST and other WPILib contributors.
-// Open Source Software; you can modify and/or share it under the terms of
-// the WPILib BSD license file in the root directory of this project.
-
 package frc.robot.ui;
 
-import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
-
-/*
-    There are two ModeManager functions:
-    1. Change and keep track of UI modes
-    2. Read Xbox controller inputs, and map those to an Action in an enum set of Actions.
-    To do the later, it reads the current button(s) and forms those that are pressed 
-    into a bit Mask. It checks that mask against all Actions registered in the Action enum 
-    with both a matching required bit mask, and a requiredMode that matches the active Mode.
-    It returns either Action.NONE, or a single Action that is the 
-    highest priority Action within the set of matching Actions, if more than one. 
-    It is up to the ActionManager to sort out the semantics, state, rising and 
-    falling edges of any Actions returned. ModeManager getAction() is just a mapping funtion.
-    The only other function of ModeManager is to accept Mode changes. This is the only place
-    to do that. When the mode is changed, it should ensure machanisms are correctly
-    stowed (retracted) for the new context (via the SystemActionManager). However, it will always 
-    remain up to the drive team to explicitly command all mechanism deployments as needed. 
-*/
-
+//
+// This class has 2 purposes:
+// 1. Keep track of current mode, and support Mode change
+//    (including any System level Action housekeeping per transition,
+//    emitting (pushing) as many as needed to the systemActionManager 
+//    in an unbounded queue, with no edge detection).
+//    ActionManager retrieves the queue and empties it per loop, 
+//    processing in that same loop as many System Actions as are present.  
+// 2. Poll the game controller for pressed buttons, once per loop via the
+//    pollButtons() method, called from RobotContainer. The first found will
+//    be mapped to an Action, which is emitted (pushed) to buttonActionManager,
+//    which in turn detects Action edges. This ensures at most one Action per
+//    risingEdge and one action per fallingEdge, which Actions are
+//    provided to ActionManager.
+//
 public class ModeManager {
-    private CommandXboxController m_xbox;
-    private UI_Mode m_mode;
+    private final ButtonReader          m_buttonReader;
+    private final ButtonActionManager   m_buttonActions;
+    private final SystemActionManager   m_systemActions;
 
-    public ModeManager(CommandXboxController xboxController) {
-        m_xbox = xboxController;
-        m_mode = UI_Mode.NAVIGATING;
-    }
     
-    // Mode setter and getters
-    public void setMode(UI_Mode mode) {
-        if (m_mode != mode) {
+    private UI_Mode m_mode = UI_Mode.DRIVE;
 
-            // When changing modes, it is convenient to automatically take care of
-            // mechanism housekeeping.
-            if (mode == UI_Mode.DEFENSE) {
-                // When entering DEFENSE mode, stow everything in safe positions
-                // systemActionManager.emit(Action.STOW_ALL_MECHANISMS);
-            } else if (m_mode == UI_Mode.INTAKING) {
-                // Current mode INTAKING implies the intake is extended. Pull it back
-                // when entering any other mode.
-                // systemActionManager.emit(Action.STOP_AND_PIVOT_TO_HOLD);
-            }
-            // Add mode change logging here. 
-            m_mode = mode;
-        }
-     }
-
-    public UI_Mode getMode() {
-        return m_mode;
+    public ModeManager( ButtonReader m_buttonReader,
+                        ButtonActionManager buttonActions,
+                        SystemActionManager systemActions) {
+        this.m_buttonReader = m_buttonReader;
+        this.m_buttonActions = buttonActions;
+        this.m_systemActions = systemActions;
     }
-
-    // isShootingMode is provided for swerveSubsystem to help decide whether 
-    // to start or stop AutoDriveAssistHelpers. 
-    public boolean isShootingMode() {
-        return m_mode == UI_Mode.SHOOTING;
-    }
-
-    public boolean isIntakingMode() {
-        return m_mode == UI_Mode.INTAKING;
-    }
+/*
+ * getters for current UI_Mode
+ */
+    public UI_Mode getMode()       { return m_mode; }
+    public boolean isIntakeMode()  { return m_mode == UI_Mode.INTAKE; }
+    public boolean isShootMode()   { return m_mode == UI_Mode.SHOOT; }
+    public boolean isClimbMode()   { return m_mode == UI_Mode.CLIMB; }
+    public boolean isDefenseMode() { return m_mode == UI_Mode.DEFENSE; }
 
     /*
-     *  Handle butotn polling: Pure mapping: button(s) → semantic action
-     *  Return only one Action enum per cycle. Returns Action.NONE if
-     *  no button is pressed.
+     * setMode is the single way to change Modes. That makes it a central point
+     * for ensureing all new Modes get logged, but it also allows it to
+     * do any convenient housekeeping for New modes, such as stowing mechanisms
+     * that mmight still be extended, but which are inappropriate to the
+     * new Mode, or in the case of leving DEFENSE, where SLOW mode is a toggle
+     * driven by a pair of buttons (instead of a while held Action), ensure that
+     * it does not leave in the SLOW state. 
      */
-    public Action getAction() {
-        Action best = null;
-
-        // To poll buttons, form a bitmap of all currently pressed. Note that 
-        // m_xbox.someButton().getAsBoolean() always returns true if the button is 
-        // pressed. Unlike triggers, rising or falling edges are immaterial here.
-        // (keep in mind that while actionManager will track rising and falling 
-        // edges and the state, it does so for each returned Action, not for the
-        // buttons which generated those Actions. And for architectural intents
-        // and purposes, ModeManager knows nothing about ActionManager).
-        int mask = 0;
-        if (m_xbox.a().getAsBoolean())              mask |= Buttons.A;
-        if (m_xbox.b().getAsBoolean())              mask |= Buttons.B;
-        if (m_xbox.x().getAsBoolean())              mask |= Buttons.X;
-        if (m_xbox.y().getAsBoolean())              mask |= Buttons.Y;
-        if (m_xbox.leftTrigger().getAsBoolean())    mask |= Buttons.LT;         // default is true if > 50% pressed
-        if (m_xbox.rightTrigger().getAsBoolean())   mask |= Buttons.RT;         // default is true if > 50% pressed
-        if (m_xbox.leftBumper().getAsBoolean())     mask |= Buttons.ALT;        // LB
-        if (m_xbox.rightBumper().getAsBoolean())    mask |= Buttons.RB;
-        if (m_xbox.start().getAsBoolean())          mask |= Buttons.START;
-
-        if (mask == Buttons.NONE) {         // None pressed might be the most likely case? Either way, 
-                                            // can return now for slightly better efficiency. Returning 
-                                            // now also avoids any confusion with Actions having Buttons.NONE 
-                                            // requiredMask entries in the Action enum, which now 
-                                            // represent System level Actions.
-            return Action.NONE;
+    public void setMode(UI_Mode newMode) {
+        if (newMode == m_mode) return;
+            
+        // If leaving DEFENSE, ensure robot is not going to be left in GO_SLOW state
+        if (m_mode == UI_Mode.DEFENSE) {
+            m_systemActions.emit(Action.DEFENSE_GO_FAST);
         }
-/*
-        Now scan the Action enum for all possible actions, and return the highest priority 
-        Action whose requiredMask matches the just read button mask, and whose requiredMode 
-        matches the current mode. 
-        For the algorithm used here, any prior active Action will change to 
-        Action.NONE when released. Additional button(s) pressed will result in a different
-        mask, so that too will result in changing either to Action.NONE, or to a new Action
-        matching the different mask.
-        AactionManager will not be able to tell why an Action changed, and doesn't need to care,
-        It just identifies it as a release (falling edge) of any prior action. 
-        In both such cases the new Action will be returned.
-*/
-        for (Action a : Action.values()) {
-            if ((a.requiredMode != m_mode) && (a.requiredMode != UI_Mode.ANY)) continue;
-            if ((mask & a.requiredMask) != a.requiredMask) continue;
 
-            if (best == null || a.priority < best.priority) {       // Lower numbers are higher priority
-                best = a;
+        m_mode = newMode;
+
+        switch (newMode) {
+            case INTAKE:
+                // Intake Prep
+                m_systemActions.emit(Action.START_INTAKE);
+                m_systemActions.emit(Action.STOW_ELEVATOR);
+                m_systemActions.emit(Action.STOW_WINCH);
+                break;
+
+            case SHOOT:
+                // Shooter Prep
+                m_systemActions.emit(Action.PIVOT_TO_HOLD);
+                m_systemActions.emit(Action.STOW_WINCH);
+                m_systemActions.emit(Action.STOW_ELEVATOR);
+                break;
+
+            case CLIMB:
+                // Climb Prep
+                m_systemActions.emit(Action.RETRACT_INTAKE);
+                m_systemActions.emit(Action.STOP_SHOOTER);
+                break;
+
+            case DEFENSE:
+                // Defense Prep
+                m_systemActions.emit(Action.RETRACT_INTAKE);
+                m_systemActions.emit(Action.STOP_SHOOTER);
+                m_systemActions.emit(Action.STOW_WINCH);
+                m_systemActions.emit(Action.STOW_ELEVATOR);
+                break;
+
+            case DRIVE:
+            default:
+                // No special prep; could add SHOOTER idle, etc., if desired
+                break;
+        }
+    }
+
+/*
+ * pollButtons is the main UI reader for operator intent. The only other place
+ * where buttons are handled in in RobotContainer, where ButtonBindings
+ * handles the few buttons that are reserved as triggers, rather then being
+ * polled here. This is best because those buttons apply in ALL Modes, Always,
+ * regardless of season.
+ */
+    public void pollButtons() {
+        
+        boolean alt = m_buttonReader.LB();  // Modifier/shift button while held (in all modes but DEFENSE)
+        Action a;                           // temp var, convenient to hold Action after applying Alt filter
+
+        // --- Global: AUTO_DRIVE_ON / OFF (all modes, including DEFENSE) ---
+        // COuld be moved to configureButtonBindings!
+        if (m_buttonReader.B()) {
+            a = alt ? Action.AUTO_DRIVE_OFF : Action.AUTO_DRIVE_ON;
+            m_buttonActions.emit(a);
+        }
+
+        // --- DEFENSE mode overrides most UI ---
+        if (m_mode == UI_Mode.DEFENSE) {
+            // ALT is ignored in defense (i.e. LB has no modifier meaning here)
+            if (m_buttonReader.A()) { m_buttonActions.emit(Action.DEFENSE_GO_SLOW); }
+            if (m_buttonReader.Y()) { m_buttonActions.emit(Action.DEFENSE_GO_FAST); }
+            if (m_buttonReader.X()) { m_buttonActions.emit(Action.PARK); }
+            // COR in defense
+            if (m_buttonReader.LT()) { m_buttonActions.emit(Action.FL_COR); }
+            if (m_buttonReader.RT()) { m_buttonActions.emit(Action.FR_COR); }
+            if (m_buttonReader.LB()) { m_buttonActions.emit(Action.BL_COR); }
+            if (m_buttonReader.RB()) { m_buttonActions.emit(Action.BR_COR); }
+            return;
+        }
+
+        /*
+         *  Semi Global UI:
+         */
+        // Button RB - Slow driving - all modes except DEFENSE
+        if (m_buttonReader.RB()) {
+            a = alt ? Action.GO_SUPER_SLOW : Action.GO_SLOW;
+            m_buttonActions.emit(a);
+        }
+
+        // Buttons LT and RT, plus Alt - COR shifts - all Modes except DEFENSE and SHOOT
+        if (m_mode != UI_Mode.SHOOT) {
+            if (m_buttonReader.LT()) {
+                a = alt ? Action.BL_COR : Action.FL_COR;
+                m_buttonActions.emit(a);
+            }
+            if (m_buttonReader.RT()) {
+                a = alt ? Action.BR_COR : Action.FR_COR;
+                m_buttonActions.emit(a);
             }
         }
 
-        return best;
+        // --- Mode-specific face buttons ---
+        switch (m_mode) {
+
+            case INTAKE:
+                // Button A
+                if (m_buttonReader.A()) {
+                    a = alt ? Action.RETRACT_INTAKE : Action.PIVOT_TO_HOLD;
+                    m_buttonActions.emit(a);
+                }
+                // Button X
+                if (m_buttonReader.X()) {
+                    a = alt ? Action.EMIT_RESET_ALL : Action.PARK;
+                    m_buttonActions.emit(a);
+                }
+                // Button Y
+                if (m_buttonReader.Y()) {
+                    a = alt ? Action.DUMP_FUEL : Action.START_INTAKE;
+                    m_buttonActions.emit(a);
+                }
+                // Button B - handled globally for autodriveAssist
+                // Buttons LT and RT - handled semi-globally for COR shifts
+                break;
+
+            case SHOOT:
+                // Button A
+                if (m_buttonReader.A()) {
+                    a = alt ? Action.DEC_FLYWHEEL_VEL : Action.SHOOT_NEAR;
+                    m_buttonActions.emit(a);
+                }
+                // Button X
+                if (m_buttonReader.X()) {
+                    a = alt ? Action.EMIT_RESET_ALL : Action.STOP_SHOOTER;
+                    m_buttonActions.emit(a);
+                }
+                if (m_buttonReader.Y()) {
+                    // Button Y
+                    a = alt ? Action.INC_FLYWHEEL_VEL : Action.SHOOT_FAR;
+                    m_buttonActions.emit(a);
+                }
+                // Button B - handled globally for autodriveAssist
+                // Buttons LT and RT - no Alt action
+                if (m_buttonReader.LT()) { m_buttonActions.emit(Action.FIRE_ONE); }
+                if (m_buttonReader.RT()) { m_buttonActions.emit(Action.FIRE_CONTINUOUS);
+                }
+                break;
+
+            case CLIMB:
+                // Button A
+                if (m_buttonReader.A()) {
+                    a = alt ? Action.ELEVATOR_DOWN : Action.ELEVATOR_UP;
+                    m_buttonActions.emit(a);
+                }
+                // Button X
+                if (m_buttonReader.X()) {
+                    a = alt ? Action.EMIT_RESET_ALL : Action.STOW_ELEVATOR;
+                    m_buttonActions.emit(a);
+                }
+                // Button Y
+                if (m_buttonReader.Y()) {
+                    a = alt ? Action.WINCH_DOWN : Action.WINCH_UP;
+                    m_buttonActions.emit(a);
+                }
+                // Button B - handled globally for autodriveAssist
+                // Buttons LT and RT - handled semi-globally for COR shifts
+                break;
+
+            case DRIVE:
+            default:
+                // DRIVE mode: only globals and COR apply
+                break;
+        }
     }
 }

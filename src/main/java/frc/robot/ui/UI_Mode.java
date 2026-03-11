@@ -4,4 +4,4 @@
 
 package frc.robot.ui;
 
-public enum UI_Mode { INTAKING, SHOOTING, NAVIGATING, DEFENSE, CLIMBING, ANY }
+public enum UI_Mode { DRIVE, INTAKE, SHOOT, DEFENSE, CLIMB }

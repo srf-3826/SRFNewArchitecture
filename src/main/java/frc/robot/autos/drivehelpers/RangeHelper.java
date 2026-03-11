@@ -8,15 +8,15 @@ import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import frc.robot.ui.AutoDriveHelperAction;
-import frc.robot.ui.HelperContext;
+import frc.robot.ui.UIContext;
 
 public class RangeHelper implements AutoDriveHelperAction {
 
-    private final HelperContext m_ctx;
+    private final UIContext m_ctx;
     private final PIDController m_distancePID;
     private ChassisSpeeds m_latestSpeeds;
 
-    public RangeHelper(HelperContext ctx) {
+    public RangeHelper(UIContext ctx) {
         this.m_ctx = ctx;
 
         m_distancePID = new PIDController(1.2, 0.0, 0.1);

@@ -8,15 +8,15 @@ import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import frc.robot.ui.AutoDriveHelperAction;
-import frc.robot.ui.HelperContext;
+import frc.robot.ui.UIContext;
 
 public class StrafeAlignHelper implements AutoDriveHelperAction {
 
-    private final HelperContext m_ctx;
+    private final UIContext m_ctx;
     private final PIDController m_strafePID;
     private ChassisSpeeds m_latestSpeeds;
 
-    public StrafeAlignHelper(HelperContext ctx) {
+    public StrafeAlignHelper(UIContext ctx) {
         this.m_ctx = ctx;
 
         m_strafePID = new PIDController(1.0, 0.0, 0.05);

@@ -10,7 +10,7 @@ import frc.robot.autos.drivehelpers.StrafeAlignHelper;
 import frc.robot.ui.Action;
 import frc.robot.ui.AutoDriveHelperAction;
 import frc.robot.ui.ContinuousAction;
-import frc.robot.ui.HelperContext;
+import frc.robot.ui.UIContext;
 import frc.robot.ui.ModeManager;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
@@ -71,10 +71,10 @@ public class SwerveSubsystem extends ActionableSubsystem {
     public double m_fixedMaxTranslationOutput  = SDC.OUTPUT_DRIVE_LIMIT_FACTOR;                  
     public double m_fixedMaxRotationOutput     = SDC.OUTPUT_ROTATE_LIMIT_FACTOR;
 
-    private final HelperContext       m_ctx;
+    private final UIContext       m_ctx;
 
-    private boolean m_shootingDriveHelpersEnabled = false;
-    private boolean m_shootingAutoDriveHelpersOK = false;
+    private boolean m_shootDriveHelperEnabled = false;
+    private boolean m_shootAutoDriveHelpersOK = false;
   
     public class OwnedHelper {
         public final Action m_owner;
@@ -112,7 +112,7 @@ public class SwerveSubsystem extends ActionableSubsystem {
                            GyroIO gyro,
                            VisionSubsystem visionSubsystem,
                            ModeManager modeManager,
-                           HelperContext ctx ) {
+                           UIContext ctx ) {
         m_swerveCanbus = swerveCanbus;
         m_gyro = gyro;
         m_visionSubsystem = visionSubsystem;
@@ -152,36 +152,28 @@ public class SwerveSubsystem extends ActionableSubsystem {
         setupPublishing();
     }
 
-    // The following two methods enable and disable AutoDriveHelpersOK when in
-    // SHOOTING mode. If not in shooting mode (should never happen because
-    // ActionManager only processes Actions whose Enum mode matches the active mode)
-    // but to be sure there are no loose ends, just ensure the flag is cleared.
-    // Called from Polled action processing.
+    // The following two methods enable and disable AutoDriveHelpersOK.
+    // The actual Helpers to be used will depend on the UI_Mode. 
     public void setShootingAutoDriveOK() {
-        if (m_modeManager.isShootingMode()) {
-            m_shootingAutoDriveHelpersOK = true;
-        }
-        else if (m_shootingAutoDriveHelpersOK) {
-            clearShootingAutoDriveOK();
-        }
+        m_shootAutoDriveHelpersOK = true;
     }
 
     public void clearShootingAutoDriveOK() {
-        m_shootingAutoDriveHelpersOK = true;        
+        m_shootAutoDriveHelpersOK = false;        
     }
 
     // The following two methods enable and disable AutoDriveHelpers when in
     // SHOOTING mode. If not in shooting mode, just ensure the helpers are disabled.
     public void enableShootingDriveHelpers() {
-        if (m_modeManager.isShootingMode() && m_shootingAutoDriveHelpersOK) {
-            m_shootingDriveHelpersEnabled = true;
-        } else if (m_shootingDriveHelpersEnabled) {
+        if (m_modeManager.isShootMode() && m_shootAutoDriveHelpersOK) {
+            m_shootDriveHelperEnabled = true;
+        } else if (m_shootDriveHelperEnabled) {
             disableShootingDriveHelpers();
         }
     }
 
     public void disableShootingDriveHelpers() {
-        m_shootingDriveHelpersEnabled = false;
+        m_shootDriveHelperEnabled = false;
         m_activeHelpers.clear();
     }
 
@@ -189,10 +181,11 @@ public class SwerveSubsystem extends ActionableSubsystem {
      private void updateAutoHelpers() {
         // Question - remove the following line if continuous PID assistance is
         // better (leaving the PID active will more quickly react to collisions with
-        // defendeers)
+        // defendeers). isFinished needs to decide if it should be removed,
+        // perhaps by testing flag changess or Mode changes?
         m_activeHelpers.removeIf(h -> h.m_helper.isFinished());
 
-        if (!m_modeManager.isShootingMode() || !m_shootingDriveHelpersEnabled) {
+        if (!m_modeManager.isShootMode() || !m_shootDriveHelperEnabled) {
             return;
         }
 
