@@ -8,9 +8,10 @@ import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.hardware.TalonFX;
 
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants.*;
 
-public class IntakeSubsystem extends ActionableSubsystem {
+public class IntakeSubsystem extends SubsystemBase {
   @SuppressWarnings("unused")
   private CANBus m_canBus;
   @SuppressWarnings("unused")

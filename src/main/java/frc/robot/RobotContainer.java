@@ -12,6 +12,8 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 
 import frc.robot.Constants.*;
 import frc.robot.commands.*;
+import frc.robot.autos.drivehelpers.ADContext;
+
 // Uncomment of any autos actually used
 // import frc.robot.autos.*;
 
@@ -59,11 +61,11 @@ public class RobotContainer {
     private SystemActionManager                         m_systemActionManager;
     private ActionManager                               m_actionManager;
 
+    // Declear auto Drive assist components
+    private ADContext                                   m_adCtx;
 
     // Declare choosable autonomous Commands and any other Commands used with ButtonBindings
     private DoNothingCmd                m_doNothingCmd;
-
-    @SuppressWarnings("unused")
     private SwerveParkCmd               m_parkCmd;
 
     // Create sendable choosers for starting position and desired Auto routine
@@ -74,12 +76,23 @@ public class RobotContainer {
 
     //  Constructor for the robot container. Contains subsystems, OI devices, and commands.
     public RobotContainer() {
+        // Context for ADAction enum, swerveSubsystem, and auto drive helpers 
+        m_adCtx = new ADContext( 
+            m_swerveSubsystem,
+            () -> m_swerveSubsystem.getPose(),
+            () -> m_swerveSubsystem.getYaw2d(),
+            () -> m_swerveSubsystem.getAutoDriveAssistSpeeds(),
+            m_visionSubsystem,
+            () -> m_visionSubsystem.getNearestTargetInfo(),
+            m_modeManager
+        );
+
         m_gyroIO = new GyroIO(swerveCanbus, GC.PIGEON_2_CANID, GC.INVERT_GYRO);
         m_swerveSubsystem = new SwerveSubsystem(swerveCanbus,
                                                 m_gyroIO,
                                                 m_visionSubsystem,
                                                 m_modeManager,
-                                                m_ctx);
+                                                m_adCtx);
         m_intakeSubsystem = new IntakeSubsystem(allElseCanbus);
         m_shooterSubsystem = new ShooterSubsystem(allElseCanbus);
         m_climberSubsystem = new ClimberSubsystem(allElseCanbus);
@@ -90,26 +103,39 @@ public class RobotContainer {
                                                                   m_swerveSubsystem.getPose());
         m_visionSubsystem = new VisionSubsystem(m_swerveDrivePoseEstimator, m_swerveSubsystem);
 
-        /*
-            Polling UI Support
-        */
-        // Build HelperContext
+        // Commands
+        m_swerveSubsystem.setDefaultCommand(new DefaultDriveCmd(m_xbox, 
+                                                m_swerveSubsystem));
+        // DoNothing Cmd is a placeholder for Auto routines
+        m_doNothingCmd = new DoNothingCmd();
  
         // Park Cmd exits on any joystick input, so need to pass it all joystick input lambdas
         m_parkCmd = new SwerveParkCmd(m_swerveSubsystem,
                                       () -> -m_xbox.getLeftY(),
                                       () -> -m_xbox.getLeftX(),
                                       () -> -m_xbox.getRightX());
+        /*
+            Polling UI Support
+        */
+        m_buttonReader = new ButtonReader(m_xbox);
+        m_buttonActionManager = new ButtonActionManager();
+        m_systemActionManager = new SystemActionManager();
+        m_modeManager = new ModeManager(m_buttonReader, m_buttonActionManager, m_systemActionManager);
+        
+        m_ctx = new UIContext( 
+            m_swerveSubsystem,
+            m_intakeSubsystem,
+            m_shooterSubsystem,
+            m_climberSubsystem,
+            m_systemActionManager,
+            m_parkCmd
+        );
 
-        m_swerveSubsystem.setDefaultCommand(new DefaultDriveCmd(m_xbox, 
-                                                                m_swerveSubsystem));
-        // DoNothing Cmd is a placeholder for Auto routines
-        m_doNothingCmd = new DoNothingCmd();
+        m_actionManager = new ActionManager(m_ctx, m_buttonActionManager, m_systemActionManager);
 
-        m_autoRoutineChooser.setDefaultOption("Do nothing", m_doNothingCmd);
+          m_autoRoutineChooser.setDefaultOption("Do nothing", m_doNothingCmd);
         SmartDashboard.putData("Autonomous Selection:", m_autoRoutineChooser);
 
-        initPollingUI();
         configureButtonBindings();
     }
 
@@ -130,32 +156,6 @@ public class RobotContainer {
     // via this getter:
     public static XboxController getHidXboxCtrl() {
         return m_xbox.getHID();
-    }
-
-    /*
-     * Method to initialize all of the Polling UI support
-     */
-    private void initPollingUI() {
-        m_buttonReader = new ButtonReader(m_xbox);
-        m_buttonActionManager = new ButtonActionManager();
-        m_systemActionManager = new SystemActionManager();
-        m_modeManager = new ModeManager(m_buttonReader, m_buttonActionManager, m_systemActionManager);
-        
-        m_ctx = new UIContext( 
-            m_swerveSubsystem,
-            () -> m_swerveSubsystem.getPose(),
-            () -> m_swerveSubsystem.getYaw2d(),
-            () -> m_swerveSubsystem.getAutoDriveAssistSpeeds(),
-            m_visionSubsystem,
-            () -> m_visionSubsystem.getNearestTargetInfo(),
-            m_intakeSubsystem,
-            m_shooterSubsystem,
-            m_climberSubsystem,
-            m_modeManager,
-            m_systemActionManager
-        );
-
-        m_actionManager = new ActionManager(m_ctx, m_buttonActionManager, m_systemActionManager);
     }
 
     /***********************************************

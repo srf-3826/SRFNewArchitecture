@@ -432,7 +432,7 @@ public final class Constants {
         * Physical location of the camera on the robot, relative to the center of the robot.        
         */
         public static final Transform3d CAMERA_TO_ROBOT =
-        new Transform3d(new Translation3d(12, 0.0, 0), new Rotation3d());
+                                   new Transform3d(new Translation3d(12, 0.0, 0), new Rotation3d());
     
         public static final Transform3d ROBOT_TO_CAMERA = CAMERA_TO_ROBOT.inverse();
 
@@ -445,7 +445,7 @@ public final class Constants {
         public static final double APRILTAG_HEIGHT = 24;
         public static final double PROCESSOR_HEIGHT = 47.875;
 
-        public static final Double OFFSET_3_FT = 3.0;               // TODO: "double"?
+        public static final double OFFSET_3_FT = 3.0;
         public static final String LIMELIGHT_NAME = "limelight";
     }
 

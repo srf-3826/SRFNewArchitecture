@@ -7,8 +7,9 @@ package frc.robot.subsystems;
 import com.ctre.phoenix6.CANBus;
 
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
-public class ClimberSubsystem extends ActionableSubsystem {
+public class ClimberSubsystem extends SubsystemBase {
   @SuppressWarnings("unused")
   private CANBus m_canBus;
 
@@ -20,9 +21,12 @@ public class ClimberSubsystem extends ActionableSubsystem {
 
   public void raiseElevator() {};
   public void lowerElevator() {};
+  public void stopElevator() {};
   public void winchUp() {};
   public void winchDown() {};
   public void stopWinch() {};
+  public void stowElevator() {};
+  public void stowWinch() {};
 
   @Override
   public void periodic() {

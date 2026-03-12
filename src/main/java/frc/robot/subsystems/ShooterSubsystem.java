@@ -23,9 +23,10 @@ import com.ctre.phoenix6.signals.FeedbackSensorSourceValue;
 import com.ctre.phoenix6.CANBus;
 
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants.*;
 
-public class ShooterSubsystem  extends ActionableSubsystem {
+public class ShooterSubsystem  extends SubsystemBase {
     private double    m_rpmLeft;
     private double    m_rpmRight;
     private TalonFX   m_leftFlywheel;

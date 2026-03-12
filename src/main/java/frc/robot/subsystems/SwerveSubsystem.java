@@ -4,13 +4,12 @@ import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import frc.lib.sensors.GyroIO;
 import frc.lib.sensors.MotionEstimator;
 import frc.robot.Constants.*;
-import frc.robot.autos.drivehelpers.AimHelper;
-import frc.robot.autos.drivehelpers.RangeHelper;
-import frc.robot.autos.drivehelpers.StrafeAlignHelper;
-import frc.robot.ui.Action;
-import frc.robot.ui.AutoDriveHelperAction;
-import frc.robot.ui.ContinuousAction;
-import frc.robot.ui.UIContext;
+import frc.robot.autos.drivehelpers.ShootAimHelper;
+import frc.robot.autos.drivehelpers.ADAction;
+import frc.robot.autos.drivehelpers.ADContext;
+import frc.robot.autos.drivehelpers.ContinuousAction;
+import frc.robot.autos.drivehelpers.ShootRangeHelper;
+import frc.robot.autos.drivehelpers.ShootStrafeHelper;
 import frc.robot.ui.ModeManager;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
@@ -71,16 +70,16 @@ public class SwerveSubsystem extends ActionableSubsystem {
     public double m_fixedMaxTranslationOutput  = SDC.OUTPUT_DRIVE_LIMIT_FACTOR;                  
     public double m_fixedMaxRotationOutput     = SDC.OUTPUT_ROTATE_LIMIT_FACTOR;
 
-    private final UIContext       m_ctx;
+    private final ADContext       m_ctx;
 
-    private boolean m_shootDriveHelperEnabled = false;
-    private boolean m_shootAutoDriveHelpersOK = false;
+    private boolean m_shootDriveHelpersEnabled = false;
+    private boolean m_autoDriveHelpersOK = false;
   
     public class OwnedHelper {
-        public final Action m_owner;
+        public final ADAction m_owner;
         public final ContinuousAction m_helper;
 
-        public OwnedHelper(Action owner, ContinuousAction helper) {
+        public OwnedHelper(ADAction owner, ContinuousAction helper) {
             this.m_owner = owner;
             this.m_helper = helper;
         }
@@ -112,7 +111,7 @@ public class SwerveSubsystem extends ActionableSubsystem {
                            GyroIO gyro,
                            VisionSubsystem visionSubsystem,
                            ModeManager modeManager,
-                           UIContext ctx ) {
+                           ADContext ctx ) {
         m_swerveCanbus = swerveCanbus;
         m_gyro = gyro;
         m_visionSubsystem = visionSubsystem;
@@ -154,29 +153,31 @@ public class SwerveSubsystem extends ActionableSubsystem {
 
     // The following two methods enable and disable AutoDriveHelpersOK.
     // The actual Helpers to be used will depend on the UI_Mode. 
-    public void setShootingAutoDriveOK() {
-        m_shootAutoDriveHelpersOK = true;
+    public void enableAutoDriveHelpers() {
+        m_autoDriveHelpersOK = true;
     }
 
-    public void clearShootingAutoDriveOK() {
-        m_shootAutoDriveHelpersOK = false;        
+    public void disableAutoDriveHelpers() {
+        m_autoDriveHelpersOK = false;        
     }
 
     // The following two methods enable and disable AutoDriveHelpers when in
     // SHOOTING mode. If not in shooting mode, just ensure the helpers are disabled.
     public void enableShootingDriveHelpers() {
-        if (m_modeManager.isShootMode() && m_shootAutoDriveHelpersOK) {
-            m_shootDriveHelperEnabled = true;
-        } else if (m_shootDriveHelperEnabled) {
+        if (m_modeManager.isShootMode() && m_autoDriveHelpersOK) {
+            m_shootDriveHelpersEnabled = true;
+        } else if (m_shootDriveHelpersEnabled) {
             disableShootingDriveHelpers();
         }
-    }
+       }
 
     public void disableShootingDriveHelpers() {
-        m_shootDriveHelperEnabled = false;
+        m_shootDriveHelpersEnabled = false;
         m_activeHelpers.clear();
     }
 
+    public boolean isShootAutoDriveHelpersEnabled() { return m_shootDriveHelpersEnabled; }
+    
     // The following method handles autoDriveAssist helpers in shooting mode
      private void updateAutoHelpers() {
         // Question - remove the following line if continuous PID assistance is
@@ -185,20 +186,20 @@ public class SwerveSubsystem extends ActionableSubsystem {
         // perhaps by testing flag changess or Mode changes?
         m_activeHelpers.removeIf(h -> h.m_helper.isFinished());
 
-        if (!m_modeManager.isShootMode() || !m_shootDriveHelperEnabled) {
+        if (!m_modeManager.isShootMode() || !m_shootDriveHelpersEnabled) {
             return;
         }
 
-        if (m_visionSubsystem.hasValidTag() && !hasHelperOfType(AimHelper.class)) {
-            m_activeHelpers.add(new OwnedHelper(Action.AUTO_AIM, new AimHelper(m_ctx)));
+        if (m_visionSubsystem.hasValidTag() && !hasHelperOfType(ShootAimHelper.class)) {
+            m_activeHelpers.add(new OwnedHelper(ADAction.SHOOT_AUTO_AIM, new ShootAimHelper(m_ctx)));
         }
 
-        if (m_visionSubsystem.distanceErrorTooLarge() && !hasHelperOfType(RangeHelper.class)) {
-            m_activeHelpers.add(new OwnedHelper(Action.AUTO_RANGE, new RangeHelper(m_ctx)));
+        if (m_visionSubsystem.distanceErrorTooLarge() && !hasHelperOfType(ShootRangeHelper.class)) {
+            m_activeHelpers.add(new OwnedHelper(ADAction.SHOOT_AUTO_RANGE, new ShootRangeHelper(m_ctx)));
         }
 
-        if (m_visionSubsystem.lateralErrorTooLarge() && !hasHelperOfType(StrafeAlignHelper.class)) {
-            m_activeHelpers.add(new OwnedHelper(Action.AUTO_STRAFE, new StrafeAlignHelper(m_ctx)));
+        if (m_visionSubsystem.lateralErrorTooLarge() && !hasHelperOfType(ShootStrafeHelper.class)) {
+            m_activeHelpers.add(new OwnedHelper(ADAction.SHOOT_AUTO_STRAFE, new ShootStrafeHelper(m_ctx)));
         }
     }
 
@@ -209,7 +210,7 @@ public class SwerveSubsystem extends ActionableSubsystem {
     public ChassisSpeeds getAutoDriveAssistSpeeds() {
         double vx = 0, vy = 0, omega = 0;
         for (OwnedHelper oh : m_activeHelpers) {
-            if (oh.m_helper instanceof AutoDriveHelperAction dh) {
+            if (oh.m_helper instanceof ContinuousAction dh) {
                 ChassisSpeeds s = dh.getSpeeds();
                 vx    += s.vxMetersPerSecond;
                 vy    += s.vyMetersPerSecond;

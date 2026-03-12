@@ -4,23 +4,21 @@
 
 package frc.robot.autos.drivehelpers;
 
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import frc.robot.ui.AutoDriveHelperAction;
-import frc.robot.ui.UIContext;
 
-public class AimHelper implements AutoDriveHelperAction {
+public class ShootRangeHelper implements ContinuousAction {
 
-    private final UIContext m_ctx;
-    private final PIDController m_headingPID;
-    private ChassisSpeeds m_latestSpeeds = new ChassisSpeeds();
+    private final ADContext m_ctx;
+    private final PIDController m_distancePID;
+    private ChassisSpeeds m_latestSpeeds;
 
-    public AimHelper(UIContext ctx) {
+    public ShootRangeHelper(ADContext ctx) {
         this.m_ctx = ctx;
 
-        m_headingPID = new PIDController(3.5, 0.0, 0.2);
-        m_headingPID.enableContinuousInput(-Math.PI, Math.PI);
-        m_headingPID.setTolerance(Math.toRadians(1.5));  // ~1.5° tolerance
+        m_distancePID = new PIDController(1.2, 0.0, 0.1);
+        m_distancePID.setTolerance(0.05);  // 5 cm tolerance
     }
 
     @Override
@@ -32,7 +30,6 @@ public class AimHelper implements AutoDriveHelperAction {
         var opt = m_ctx.vision.getNearestTargetInfo();
         if (opt.isEmpty()) {
             m_latestSpeeds = new ChassisSpeeds(0, 0, 0);
-            return;
         }
 
         var info = opt.get();
@@ -41,12 +38,13 @@ public class AimHelper implements AutoDriveHelperAction {
         double tx = robotToTag.getTranslation().getX();
         double ty = robotToTag.getTranslation().getY();
 
-        double desiredHeading = Math.atan2(ty, tx);
-        double currentHeading = m_ctx.swerve.getPose().getRotation().getRadians();
+        double range = Math.hypot(tx, ty);
+        double desiredRange = m_ctx.vision.computeDesiredRangeToTag(info.tagId);
 
-        double omega = m_headingPID.calculate(currentHeading, desiredHeading);
+        double vx = m_distancePID.calculate(range, desiredRange);
+        vx = MathUtil.clamp(vx, -1.5, 1.5);
 
-        m_latestSpeeds = new ChassisSpeeds(0, 0, omega);
+        m_latestSpeeds = new ChassisSpeeds(vx, 0, 0);
     }
 
     public ChassisSpeeds getSpeeds() {
@@ -55,8 +53,7 @@ public class AimHelper implements AutoDriveHelperAction {
 
     @Override
     public boolean isFinished() {
-        if (isShootMode) && is
-        return m_headingPID.atSetpoint();
+        return m_distancePID.atSetpoint();
     }
 
     @Override

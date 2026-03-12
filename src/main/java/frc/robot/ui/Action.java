@@ -36,17 +36,17 @@ public enum Action {
     ),
 
     AUTO_DRIVE_ON(
-        ctx -> ctx.swerve.enableDriveHelpers(),
+        ctx -> ctx.swerve.enableAutoDriveHelpers(),
         null
     ),
 
     AUTO_DRIVE_OFF(
-        ctx -> ctx.swerve.disableDriveHelpers(),
+        ctx -> ctx.swerve.disableAutoDriveHelpers(),
         null
     ),
 
     PARK(
-        ctx -> ctx.swerve.scheduleParkCommand(),
+        ctx -> ctx.schedulePark(),
         null
     ),
 
@@ -140,12 +140,12 @@ public enum Action {
 
     WINCH_UP(
         ctx -> ctx.climb.winchUp(),
-        ctx -> ctx.climb.winchStop()
+        ctx -> ctx.climb.stopWinch()
     ),
 
     WINCH_DOWN(
         ctx -> ctx.climb.winchDown(),
-        ctx -> ctx.climb.winchStop()
+        ctx -> ctx.climb.stopWinch()
     ),
 
     STOW_ELEVATOR(
@@ -166,7 +166,7 @@ public enum Action {
     public final Consumer<UIContext> onRise;
     public final Consumer<UIContext> onFall;
 
-    Action(int buttonMask, Consumer<UIContext> onRise, Consumer<UIContext> onFall) {
+    Action(Consumer<UIContext> onRise, Consumer<UIContext> onFall) {
         this.onRise = onRise;
         this.onFall = onFall;
     }
