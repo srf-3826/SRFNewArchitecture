@@ -1,14 +1,15 @@
 package frc.robot.autos.drivehelpers;
 
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import java.util.Optional;
 
-public interface ContinuousAction { 
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import frc.robot.subsystems.TargetInfo;
+
+public interface ContinuousAction {
     void start();
-    void update();
+    void update(Optional<TargetInfo> tag);
     void stop();
     ChassisSpeeds getSpeeds();
-    
-    default boolean isFinished() {
-        return false;
-    }
+    default boolean isFinished() { return false; }
+    default boolean shouldActivate(ADContext adCtx) { return true; }
 }

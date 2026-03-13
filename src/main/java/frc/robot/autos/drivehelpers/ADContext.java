@@ -26,6 +26,9 @@ public final class ADContext {
     public final VisionSubsystem vision;
     public final Supplier<Optional<TargetInfo>> targetSupplier;
 
+    // AutoDriveAgrent
+    public final AutoDriveAgent autoDriveAgent;
+
     // ModeManager
     public final ModeManager modeManager;
 
@@ -36,6 +39,7 @@ public final class ADContext {
                         Supplier<ChassisSpeeds> autoDriveChassisSpeedsSupplier,
                         VisionSubsystem vision,
                         Supplier<Optional<TargetInfo>> targetSupplier,
+                        AutoDriveAgent autoDriveAgent,
                         ModeManager modeManager ) {
         this.swerve                         = swerve;
         this.poseSupplier                   = poseSupplier;
@@ -43,6 +47,7 @@ public final class ADContext {
         this.autoDriveChassisSpeedsSupplier = autoDriveChassisSpeedsSupplier;
         this.vision                         = vision;
         this.targetSupplier                 = targetSupplier;
+        this.autoDriveAgent                 = autoDriveAgent;
         this.modeManager                    = modeManager;
     }
 
@@ -51,6 +56,6 @@ public final class ADContext {
     }
 
     public boolean isShootAutoDriveEnabled() {
-        return swerve.isShootAutoDriveHelpersEnabled();
+        return autoDriveAgent.isShootAutoDriveHelpersEnabled();
     }
 }

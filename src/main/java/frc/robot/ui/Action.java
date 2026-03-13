@@ -36,12 +36,12 @@ public enum Action {
     ),
 
     AUTO_DRIVE_ON(
-        ctx -> ctx.swerve.enableAutoDriveHelpers(),
+        ctx -> ctx.swerve.getAutoDriveAgent().enableAutoDriveHelpers(),
         null
     ),
 
     AUTO_DRIVE_OFF(
-        ctx -> ctx.swerve.disableAutoDriveHelpers(),
+        ctx -> ctx.swerve.getAutoDriveAgent().disableAutoDriveHelpers(),
         null
     ),
 

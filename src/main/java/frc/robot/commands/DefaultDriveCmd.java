@@ -51,7 +51,7 @@ public class DefaultDriveCmd extends Command {
                                                        rotateVal * SDC.MAX_ROBOT_ANG_VEL_RAD_PER_SEC);
     
         // Fetch any autoSpeeds that may be active (again meters and radians per sec, will be 0.0 if none)
-        ChassisSpeeds autoSpeeds = m_swerveDrive.getAutoDriveAssistSpeeds();
+        ChassisSpeeds autoSpeeds = m_swerveDrive.getAutoDriveAgent().getAutoDriveAssistSpeeds();
 
         // Blend the manual and auto speeds (all robot relative at this point)
         // If field relative speeds are needed the conversion will be done by swerve.drive() 

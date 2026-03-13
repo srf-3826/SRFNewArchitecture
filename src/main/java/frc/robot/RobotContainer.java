@@ -13,6 +13,7 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.Constants.*;
 import frc.robot.commands.*;
 import frc.robot.autos.drivehelpers.ADContext;
+import frc.robot.autos.drivehelpers.AutoDriveAgent;
 
 // Uncomment of any autos actually used
 // import frc.robot.autos.*;
@@ -54,15 +55,12 @@ public class RobotContainer {
     private VisionSubsystem             m_visionSubsystem;
 
     // Declare UI Support managers and members
-    private UIContext                                   m_ctx;
-    private ButtonReader                                m_buttonReader;
-    private ModeManager                                 m_modeManager;
-    private ButtonActionManager                         m_buttonActionManager;
-    private SystemActionManager                         m_systemActionManager;
-    private ActionManager                               m_actionManager;
-
-    // Declear auto Drive assist components
-    private ADContext                                   m_adCtx;
+    private UIContext                   m_ctx;
+    private ButtonReader                m_buttonReader;
+    private ModeManager                 m_modeManager;
+    private ButtonActionManager         m_buttonActionManager;
+    private SystemActionManager         m_systemActionManager;
+    private ActionManager               m_actionManager;
 
     // Declare choosable autonomous Commands and any other Commands used with ButtonBindings
     private DoNothingCmd                m_doNothingCmd;
@@ -76,22 +74,9 @@ public class RobotContainer {
 
     //  Constructor for the robot container. Contains subsystems, OI devices, and commands.
     public RobotContainer() {
-        // Context for ADAction enum, swerveSubsystem, and auto drive helpers 
-        m_adCtx = new ADContext( 
-            m_swerveSubsystem,
-            () -> m_swerveSubsystem.getPose(),
-            () -> m_swerveSubsystem.getYaw2d(),
-            () -> m_swerveSubsystem.getAutoDriveAssistSpeeds(),
-            m_visionSubsystem,
-            () -> m_visionSubsystem.getNearestTargetInfo(),
-            m_modeManager
-        );
-
         m_gyroIO = new GyroIO(swerveCanbus, GC.PIGEON_2_CANID, GC.INVERT_GYRO);
         m_swerveSubsystem = new SwerveSubsystem(swerveCanbus,
                                                 m_gyroIO,
-                                                m_visionSubsystem,
-                                                m_modeManager,
                                                 m_adCtx);
         m_intakeSubsystem = new IntakeSubsystem(allElseCanbus);
         m_shooterSubsystem = new ShooterSubsystem(allElseCanbus);
@@ -124,6 +109,7 @@ public class RobotContainer {
         
         m_ctx = new UIContext( 
             m_swerveSubsystem,
+            m_actionManager,
             m_intakeSubsystem,
             m_shooterSubsystem,
             m_climberSubsystem,

@@ -4,13 +4,8 @@ import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import frc.lib.sensors.GyroIO;
 import frc.lib.sensors.MotionEstimator;
 import frc.robot.Constants.*;
-import frc.robot.autos.drivehelpers.ShootAimHelper;
-import frc.robot.autos.drivehelpers.ADAction;
 import frc.robot.autos.drivehelpers.ADContext;
-import frc.robot.autos.drivehelpers.ContinuousAction;
-import frc.robot.autos.drivehelpers.ShootRangeHelper;
-import frc.robot.autos.drivehelpers.ShootStrafeHelper;
-import frc.robot.ui.ModeManager;
+import frc.robot.autos.drivehelpers.AutoDriveAgent;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
@@ -22,8 +17,6 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Pose2d;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 import com.ctre.phoenix6.CANBus;
@@ -50,8 +43,6 @@ public class SwerveSubsystem extends ActionableSubsystem {
 
     private final CANBus              m_swerveCanbus;
     private final GyroIO              m_gyro;
-    private final VisionSubsystem     m_visionSubsystem;
-    private final ModeManager         m_modeManager;
 
     private Rotation2d          m_currentHeading2d;
 
@@ -70,23 +61,10 @@ public class SwerveSubsystem extends ActionableSubsystem {
     public double m_fixedMaxTranslationOutput  = SDC.OUTPUT_DRIVE_LIMIT_FACTOR;                  
     public double m_fixedMaxRotationOutput     = SDC.OUTPUT_ROTATE_LIMIT_FACTOR;
 
-    private final ADContext       m_ctx;
+    // Declare auto Drive assist components
+    private ADContext           m_adCtx;
+    private AutoDriveAgent      m_autoDriveAgent;    
 
-    private boolean m_shootDriveHelpersEnabled = false;
-    private boolean m_autoDriveHelpersOK = false;
-  
-    public class OwnedHelper {
-        public final ADAction m_owner;
-        public final ContinuousAction m_helper;
-
-        public OwnedHelper(ADAction owner, ContinuousAction helper) {
-            this.m_owner = owner;
-            this.m_helper = helper;
-        }
-    }
-
-    public List<OwnedHelper> m_activeHelpers = new ArrayList<>();
-    
     private GenericEntry        m_isFieldOrientedEntry;
     public  GenericEntry        m_odometryPoseXEntry;
     public  GenericEntry        m_odometryPoseYEntry;
@@ -109,15 +87,11 @@ public class SwerveSubsystem extends ActionableSubsystem {
 
     public SwerveSubsystem(CANBus swerveCanbus,
                            GyroIO gyro,
-                           VisionSubsystem visionSubsystem,
-                           ModeManager modeManager,
-                           ADContext ctx ) {
+                           ADContext adCtx ) {
         m_swerveCanbus = swerveCanbus;
         m_gyro = gyro;
-        m_visionSubsystem = visionSubsystem;
-        m_modeManager = modeManager;
-        m_ctx = ctx;
-
+        m_adCtx = adCtx;
+        
         CommandScheduler.getInstance().registerSubsystem(this);
 
         m_currentHeading2d = getYaw2d();
@@ -128,9 +102,7 @@ public class SwerveSubsystem extends ActionableSubsystem {
             new SwerveModule(2, SDC.BL_Mod2.MODULE_CONSTANTS, m_swerveCanbus),
             new SwerveModule(3, SDC.BR_Mod3.MODULE_CONSTANTS, m_swerveCanbus)
         };
-
-        disableShootingDriveHelpers();
-
+     
         // By pausing init for a second before setting module offsets, we avoid 
         // a bug with inverting motors. This call is thread blocking, but is only 
         // called once at startup, so ignore.
@@ -148,78 +120,15 @@ public class SwerveSubsystem extends ActionableSubsystem {
                                                  getPose());
         m_motionEstimator = new MotionEstimator();
 
+        m_autoDriveAgent = new AutoDriveAgent(m_adCtx);
+
         setupPublishing();
     }
 
-    // The following two methods enable and disable AutoDriveHelpersOK.
-    // The actual Helpers to be used will depend on the UI_Mode. 
-    public void enableAutoDriveHelpers() {
-        m_autoDriveHelpersOK = true;
+    // Getter for the AutoDriveAgent class, needed by DefaultDriveCmd
+    public AutoDriveAgent getAutoDriveAgent() {
+        return m_autoDriveAgent;
     }
-
-    public void disableAutoDriveHelpers() {
-        m_autoDriveHelpersOK = false;        
-    }
-
-    // The following two methods enable and disable AutoDriveHelpers when in
-    // SHOOTING mode. If not in shooting mode, just ensure the helpers are disabled.
-    public void enableShootingDriveHelpers() {
-        if (m_modeManager.isShootMode() && m_autoDriveHelpersOK) {
-            m_shootDriveHelpersEnabled = true;
-        } else if (m_shootDriveHelpersEnabled) {
-            disableShootingDriveHelpers();
-        }
-       }
-
-    public void disableShootingDriveHelpers() {
-        m_shootDriveHelpersEnabled = false;
-        m_activeHelpers.clear();
-    }
-
-    public boolean isShootAutoDriveHelpersEnabled() { return m_shootDriveHelpersEnabled; }
-    
-    // The following method handles autoDriveAssist helpers in shooting mode
-     private void updateAutoHelpers() {
-        // Question - remove the following line if continuous PID assistance is
-        // better (leaving the PID active will more quickly react to collisions with
-        // defendeers). isFinished needs to decide if it should be removed,
-        // perhaps by testing flag changess or Mode changes?
-        m_activeHelpers.removeIf(h -> h.m_helper.isFinished());
-
-        if (!m_modeManager.isShootMode() || !m_shootDriveHelpersEnabled) {
-            return;
-        }
-
-        if (m_visionSubsystem.hasValidTag() && !hasHelperOfType(ShootAimHelper.class)) {
-            m_activeHelpers.add(new OwnedHelper(ADAction.SHOOT_AUTO_AIM, new ShootAimHelper(m_ctx)));
-        }
-
-        if (m_visionSubsystem.distanceErrorTooLarge() && !hasHelperOfType(ShootRangeHelper.class)) {
-            m_activeHelpers.add(new OwnedHelper(ADAction.SHOOT_AUTO_RANGE, new ShootRangeHelper(m_ctx)));
-        }
-
-        if (m_visionSubsystem.lateralErrorTooLarge() && !hasHelperOfType(ShootStrafeHelper.class)) {
-            m_activeHelpers.add(new OwnedHelper(ADAction.SHOOT_AUTO_STRAFE, new ShootStrafeHelper(m_ctx)));
-        }
-    }
-
-    private boolean hasHelperOfType(Class<?> clazz) {
-        return m_activeHelpers.stream().anyMatch(h -> clazz.isInstance(h.m_helper));
-    }
-
-    public ChassisSpeeds getAutoDriveAssistSpeeds() {
-        double vx = 0, vy = 0, omega = 0;
-        for (OwnedHelper oh : m_activeHelpers) {
-            if (oh.m_helper instanceof ContinuousAction dh) {
-                ChassisSpeeds s = dh.getSpeeds();
-                vx    += s.vxMetersPerSecond;
-                vy    += s.vyMetersPerSecond;
-                omega += s.omegaRadiansPerSecond;
-            }
-        }
-
-        return new ChassisSpeeds(vx, vy, omega);
-    }     
 
     // The following five methods establish the center of rotation, initially or
     // on the fly, to either the center of the robot (default) or to one of the 
@@ -369,7 +278,7 @@ public class SwerveSubsystem extends ActionableSubsystem {
     public void periodic() {
         // This method will be called by the command scheduler once per loop, 
         // Question: only when robot is enabled?
-        updateAutoHelpers();
+        m_autoDriveAgent.update();
 
         m_now = Timer.getFPGATimestamp();
         // The following methods are separate with separate decimators to reduce publish frequency
@@ -523,7 +432,7 @@ public class SwerveSubsystem extends ActionableSubsystem {
         // doing this should avoid making CAN bus data requests too frequently for
         // the Pigeon2 to keep up.
         m_isFieldOrientedEntry.setString(m_isFieldOriented ? "Yes" : "No");
-        // Insert UI Mode display here, drop display of AngVelOdom and AngAccelOdom. Add linear jerk
+        // Drop display of AngVelOdom and AngAccelOdom. Add linear jerk
         Pose2d location2d = getPose();
         m_odometryPoseXEntry.setString(F.df2.format(location2d.getX()));
         m_odometryPoseYEntry.setString(F.df2.format(location2d.getY()));           

@@ -3,6 +3,8 @@ package frc.robot.subsystems;
 import frc.robot.LimelightHelpers;
 import frc.robot.LimelightHelpers.LimelightResults;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
@@ -78,6 +80,26 @@ public class VisionSubsystem extends ActionableSubsystem {
         return Optional.of(new TargetInfo((int)best.fiducialID,
                                           best.getRobotPose_TargetSpace(),      // a robotToTag Pose3d
                                           m_limelightResults.timestamp_RIOFPGA_capture));
+    }
+
+    public List<TargetInfo> getAllTargetInfo() {
+
+        m_limelightResults = LimelightHelpers.getLatestResults(VC.LIMELIGHT_NAME);
+
+        if (!m_limelightResults.valid || m_limelightResults.targets_Fiducials.length == 0) {
+            return List.of();
+        }
+
+        List<TargetInfo> list = new ArrayList<>();
+
+        for (var t : m_limelightResults.targets_Fiducials) {
+            list.add(new TargetInfo((int)t.fiducialID,
+                                    t.getRobotPose_TargetSpace(),
+                                    m_limelightResults.timestamp_RIOFPGA_capture
+                                   )
+                    );
+        }
+        return list;
     }
 
     // Call this from periodic() whenever valid TargetInfo data is available
