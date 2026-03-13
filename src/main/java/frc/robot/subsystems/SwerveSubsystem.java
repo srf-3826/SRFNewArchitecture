@@ -4,8 +4,6 @@ import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import frc.lib.sensors.GyroIO;
 import frc.lib.sensors.MotionEstimator;
 import frc.robot.Constants.*;
-import frc.robot.autos.drivehelpers.ADContext;
-import frc.robot.autos.drivehelpers.AutoDriveAgent;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
@@ -61,10 +59,6 @@ public class SwerveSubsystem extends ActionableSubsystem {
     public double m_fixedMaxTranslationOutput  = SDC.OUTPUT_DRIVE_LIMIT_FACTOR;                  
     public double m_fixedMaxRotationOutput     = SDC.OUTPUT_ROTATE_LIMIT_FACTOR;
 
-    // Declare auto Drive assist components
-    private ADContext           m_adCtx;
-    private AutoDriveAgent      m_autoDriveAgent;    
-
     private GenericEntry        m_isFieldOrientedEntry;
     public  GenericEntry        m_odometryPoseXEntry;
     public  GenericEntry        m_odometryPoseYEntry;
@@ -86,12 +80,10 @@ public class SwerveSubsystem extends ActionableSubsystem {
     private double              m_lastSwerveModulesPubTime = PUBLISH_INTERVAL / 2.0;
 
     public SwerveSubsystem(CANBus swerveCanbus,
-                           GyroIO gyro,
-                           ADContext adCtx ) {
+                           GyroIO gyro ) {
         m_swerveCanbus = swerveCanbus;
         m_gyro = gyro;
-        m_adCtx = adCtx;
-        
+
         CommandScheduler.getInstance().registerSubsystem(this);
 
         m_currentHeading2d = getYaw2d();
@@ -120,14 +112,7 @@ public class SwerveSubsystem extends ActionableSubsystem {
                                                  getPose());
         m_motionEstimator = new MotionEstimator();
 
-        m_autoDriveAgent = new AutoDriveAgent(m_adCtx);
-
         setupPublishing();
-    }
-
-    // Getter for the AutoDriveAgent class, needed by DefaultDriveCmd
-    public AutoDriveAgent getAutoDriveAgent() {
-        return m_autoDriveAgent;
     }
 
     // The following five methods establish the center of rotation, initially or
@@ -278,8 +263,6 @@ public class SwerveSubsystem extends ActionableSubsystem {
     public void periodic() {
         // This method will be called by the command scheduler once per loop, 
         // Question: only when robot is enabled?
-        m_autoDriveAgent.update();
-
         m_now = Timer.getFPGATimestamp();
         // The following methods are separate with separate decimators to reduce publish frequency
         publishSwerveSubsystemData(); 

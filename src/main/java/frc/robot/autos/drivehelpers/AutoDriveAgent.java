@@ -40,13 +40,8 @@ public class AutoDriveAgent {
     // The following two methods enable and disable AutoDriveHelpersOK.
     // Set manually via a press / Alt press (typ. on Button B)
     // The actual Helpers to be used will depend on the UI_Mode. 
-    public void enableAutoDriveHelpers() {
-        m_autoDriveHelpersOK = true;
-    }
-		
-    public void disableAutoDriveHelpers() {
-        m_autoDriveHelpersOK = false;        
-    }
+    public void enableAutoDriveHelpers() { m_autoDriveHelpersOK = true; }
+    public void disableAutoDriveHelpers() { m_autoDriveHelpersOK = false; }
 	
     // The following two methods enable and disable AutoDriveHelpers when in
     // SHOOTING mode. If not in shooting mode, just ensure the helpers are disabled.
@@ -63,9 +58,7 @@ public class AutoDriveAgent {
         m_activeHelpers.clear();
     }
 
-    public boolean isShootAutoDriveHelpersEnabled() { 
-        return m_shootDriveHelpersEnabled;
-    }
+    public boolean isShootAutoDriveHelpersEnabled() { return m_shootDriveHelpersEnabled; }
 
     // SelectTagFor returns an optional TargetInfo whose Target Tag ID matches 
     // at least one of the ReuiredTagIDs specified in ADHelperMetadata. It also
@@ -114,7 +107,8 @@ public class AutoDriveAgent {
 
             ContinuousAction helper = action.m_helperFactory.apply(m_adCtx);
 
-            if (!helper.shouldActivate(m_adCtx)) continue;
+            Optional<TargetInfo> tag = selectTagFor(action.m_adMetadata);
+            if (!helper.shouldActivate(m_adCtx, m_shootDriveHelpersEnabled, tag)) continue;
             if (hasHelperOfType(helper.getClass())) continue;
 
             helper.start();
@@ -124,8 +118,7 @@ public class AutoDriveAgent {
         // 3. Update all active helpers
         for (OwnedHelper oh : m_activeHelpers) {
             oh.m_selectedTag = selectTagFor(oh.m_owner.m_adMetadata);
-            oh.m_helper.update(oh.m_selectedTag);
-//            oh.m_helper.update();
+            oh.m_helper.update(oh.m_selectedTag, m_shootDriveHelpersEnabled);
         }
     }
 

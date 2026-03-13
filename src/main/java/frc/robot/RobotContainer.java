@@ -62,6 +62,10 @@ public class RobotContainer {
     private SystemActionManager         m_systemActionManager;
     private ActionManager               m_actionManager;
 
+    // Declare AutoDriveAssist members
+    private ADContext                   m_adCtx;
+    private AutoDriveAgent              m_autoDriveAgent;
+
     // Declare choosable autonomous Commands and any other Commands used with ButtonBindings
     private DoNothingCmd                m_doNothingCmd;
     private SwerveParkCmd               m_parkCmd;
@@ -75,9 +79,7 @@ public class RobotContainer {
     //  Constructor for the robot container. Contains subsystems, OI devices, and commands.
     public RobotContainer() {
         m_gyroIO = new GyroIO(swerveCanbus, GC.PIGEON_2_CANID, GC.INVERT_GYRO);
-        m_swerveSubsystem = new SwerveSubsystem(swerveCanbus,
-                                                m_gyroIO,
-                                                m_adCtx);
+        m_swerveSubsystem = new SwerveSubsystem(swerveCanbus, m_gyroIO);
         m_intakeSubsystem = new IntakeSubsystem(allElseCanbus);
         m_shooterSubsystem = new ShooterSubsystem(allElseCanbus);
         m_climberSubsystem = new ClimberSubsystem(allElseCanbus);
@@ -87,6 +89,11 @@ public class RobotContainer {
                                                                   m_swerveSubsystem.getModulePositions(),
                                                                   m_swerveSubsystem.getPose());
         m_visionSubsystem = new VisionSubsystem(m_swerveDrivePoseEstimator, m_swerveSubsystem);
+
+        m_adCtx = new ADContext( m_swerveSubsystem,
+                                 m_visionSubsystem,
+                                 m_modeManager);
+        m_autoDriveAgent = new AutoDriveAgent(m_adCtx);
 
         // Commands
         m_swerveSubsystem.setDefaultCommand(new DefaultDriveCmd(m_xbox, 
@@ -109,7 +116,7 @@ public class RobotContainer {
         
         m_ctx = new UIContext( 
             m_swerveSubsystem,
-            m_actionManager,
+            m_autoDriveAgent,
             m_intakeSubsystem,
             m_shooterSubsystem,
             m_climberSubsystem,
@@ -119,7 +126,10 @@ public class RobotContainer {
 
         m_actionManager = new ActionManager(m_ctx, m_buttonActionManager, m_systemActionManager);
 
-          m_autoRoutineChooser.setDefaultOption("Do nothing", m_doNothingCmd);
+        /*
+         * AutoDriveAssist support
+         */
+        m_autoRoutineChooser.setDefaultOption("Do nothing", m_doNothingCmd);
         SmartDashboard.putData("Autonomous Selection:", m_autoRoutineChooser);
 
         configureButtonBindings();
@@ -159,6 +169,9 @@ public class RobotContainer {
             m_modeManager.pollButtons();
             m_actionManager.update();        
         }
+
+        // ensure Auto Drive Assist helpers stay up to date
+        m_autoDriveAgent.update();
 
         // Now ensure all StatusSignals stay up to date.
         m_gyroIO.update();

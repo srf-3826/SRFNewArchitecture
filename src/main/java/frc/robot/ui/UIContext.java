@@ -1,6 +1,7 @@
 package frc.robot.ui;
 
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import frc.robot.autos.drivehelpers.AutoDriveAgent;
 import frc.robot.commands.SwerveParkCmd;
 import frc.robot.subsystems.ClimberSubsystem;
 import frc.robot.subsystems.IntakeSubsystem;
@@ -10,6 +11,7 @@ import frc.robot.subsystems.SwerveSubsystem;
 public final class UIContext {
 
     public final SwerveSubsystem swerve;
+    public final AutoDriveAgent adAgent;
     public final IntakeSubsystem intake;
     public final ShooterSubsystem shooter;
     public final ClimberSubsystem climb;
@@ -18,6 +20,7 @@ public final class UIContext {
 
     // --- Constructor: RobotContainer builds this once ---
     public UIContext(   SwerveSubsystem swerve,
+                        AutoDriveAgent adAgent,
                         IntakeSubsystem intake,
                         ShooterSubsystem shooter,
                         ClimberSubsystem climb,
@@ -25,6 +28,7 @@ public final class UIContext {
                         SwerveParkCmd swerveParkCmd ) {
 
         this.swerve                         = swerve;
+        this.adAgent                        = adAgent;
         this.intake                         = intake;
         this.shooter                        = shooter;
         this.climb                          = climb;

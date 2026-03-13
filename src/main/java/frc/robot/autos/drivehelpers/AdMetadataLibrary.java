@@ -4,8 +4,6 @@ public final class AdMetadataLibrary {
 
     //
     //  SHOOT MODE HELPERS
-    //
-    //  Speaker tags for 2024: 4, 7, 8
     //  (You can adjust these if your vision system uses a different mapping)
     //
     private static final int[] SPEAKER_TAGS = { 4, 7, 8 };

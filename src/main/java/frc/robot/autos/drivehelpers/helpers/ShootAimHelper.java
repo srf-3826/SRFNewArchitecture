@@ -33,12 +33,11 @@ public class ShootAimHelper implements ContinuousAction {
     }
 
     @Override
-    public void update(Optional<TargetInfo> tagOpt) {
+    public void update(Optional<TargetInfo> tagOpt, boolean autoDriveEnabled) {
 
-        if (tagOpt.isEmpty()) {
+        if (!autoDriveEnabled || tagOpt.isEmpty()) {
             m_latestSpeeds = new ChassisSpeeds(0, 0, 0);
-            return;
-        }
+        return;
 
         TargetInfo tag = tagOpt.get();
         double headingError = tag.headingErrorDeg();
@@ -54,12 +53,9 @@ public class ShootAimHelper implements ContinuousAction {
     }
 
     @Override
-    public boolean shouldActivate(ADContext adCtx) {
+    public boolean shouldActivate(ADContext adCtx, boolean autoDriveEnabled, Optional<TargetInfo> tag) {
 
-        if (!adCtx.inShootMode() || !adCtx.isShootAutoDriveEnabled())
-            return false;
-
-        Optional<TargetInfo> tag = adCtx.autoDriveAgent.selectTagFor(metadata);
+        if (!adCtx.inShootMode() || !autoDriveEnabled || tag == null) return false;
         if (tag.isEmpty()) return false;
 
         double headingError = tag.get().headingErrorDeg();

@@ -30,10 +30,10 @@ public class ShootStrafeHelper implements ContinuousAction {
     }
 
     @Override
-    public void update(Optional<TargetInfo> tagOpt) {
+    public void update(Optional<TargetInfo> tagOpt, boolean autoDriveEnabled) {
 
-        if (tagOpt.isEmpty()) {
-            m_latestSpeeds = new ChassisSpeeds(0, 0, 0);
+        if (!autoDriveEnabled || tagOpt.isEmpty()) {
+            m_latestSpeeds = new ChassisSpeeds();
             return;
         }
 
