@@ -10,8 +10,10 @@ public interface ContinuousAction {
     void update(Optional<TargetInfo> tag, boolean isAutoDriveEnabled);
     void stop();
     ChassisSpeeds getSpeeds();
-    default boolean isFinished() { return false; }
-    default boolean shouldActivate( ADContext adCtx, 
-                                    boolean autoDriveEnabled, 
-                                    Optional<TargetInfo> tag) { return true; }
+    boolean isFinished(ADContext adCtx,
+                       Optional<TargetInfo> tag,
+                       boolean autoDriveEnabled);
+    boolean shouldActivate(ADContext adCtx, 
+                           Optional<TargetInfo> tag,
+                           boolean autoDriveEnabled);
 }

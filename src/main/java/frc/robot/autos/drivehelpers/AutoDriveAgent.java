@@ -34,7 +34,6 @@ public class AutoDriveAgent {
     // construct a new AutoDriveAgent
     public AutoDriveAgent(ADContext adCtx) {
         this.m_adCtx = adCtx;
-        disableShootingDriveHelpers();
     }
 
     // The following two methods enable and disable AutoDriveHelpersOK.
@@ -43,21 +42,6 @@ public class AutoDriveAgent {
     public void enableAutoDriveHelpers() { m_autoDriveHelpersOK = true; }
     public void disableAutoDriveHelpers() { m_autoDriveHelpersOK = false; }
 	
-    // The following two methods enable and disable AutoDriveHelpers when in
-    // SHOOTING mode. If not in shooting mode, just ensure the helpers are disabled.
-    public void enableShootingDriveHelpers() {
-        if (m_adCtx.modeManager.isShootMode() && m_autoDriveHelpersOK) {
-            m_shootDriveHelpersEnabled = true;
-        } else if (m_shootDriveHelpersEnabled) {
-            disableShootingDriveHelpers();
-        }
-    }
-
-    public void disableShootingDriveHelpers() {
-        m_shootDriveHelpersEnabled = false;
-        m_activeHelpers.clear();
-    }
-
     public boolean isShootAutoDriveHelpersEnabled() { return m_shootDriveHelpersEnabled; }
 
     // SelectTagFor returns an optional TargetInfo whose Target Tag ID matches 
@@ -108,7 +92,7 @@ public class AutoDriveAgent {
             ContinuousAction helper = action.m_helperFactory.apply(m_adCtx);
 
             Optional<TargetInfo> tag = selectTagFor(action.m_adMetadata);
-            if (!helper.shouldActivate(m_adCtx, m_shootDriveHelpersEnabled, tag)) continue;
+            if (!helper.shouldActivate(m_adCtx, tag, m_autoDriveHelpersOK)) continue;
             if (hasHelperOfType(helper.getClass())) continue;
 
             helper.start();

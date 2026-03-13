@@ -12,65 +12,54 @@ import frc.robot.subsystems.TargetInfo;
 
 public class ShootRangeHelper implements ContinuousAction {
 
-    private final ADContext m_ctx;
-    private final ADHelperMetadata metadata = AdMetadataLibrary.SHOOT_RANGE;
+    private final ADHelperMetadata metadata;
+    private final PIDController pid;
+    private ChassisSpeeds latest = new ChassisSpeeds();
 
-    private final PIDController m_pid =
-        new PIDController(1.2, 0.0, 0.05);  // tune as needed
-
-    private ChassisSpeeds m_latestSpeeds = new ChassisSpeeds();
-
-    public ShootRangeHelper(ADContext ctx) {
-        this.m_ctx = ctx;
+    public ShootRangeHelper(ADContext ctx, ADHelperMetadata metadata) {
+        this.metadata = metadata;
+        this.pid = new PIDController(metadata.kP, metadata.kI, metadata.kD);
     }
 
     @Override
-    public void start() {
-        m_pid.reset();
+    public boolean shouldActivate(ADContext ctx,
+                                  Optional<TargetInfo> tag,
+                                  boolean enabled) {
+
+        if (!enabled || !ctx.inShootMode() || tag.isEmpty())
+            return false;
+
+        return Math.abs(tag.get().distanceErrorMeters()) >
+               metadata.activateDistanceErrorMeters;
     }
 
     @Override
-    public void update(Optional<TargetInfo> tagOpt, boolean autoDriveEnabled) {
+    public void update(Optional<TargetInfo> tag, boolean enabled) {
 
-        if (!autoDriveEnabled || tagOpt.isEmpty()) {
-            m_latestSpeeds = new ChassisSpeeds();
+        if (!enabled || tag.isEmpty()) {
+            latest = new ChassisSpeeds();
             return;
         }
 
-        TargetInfo tag = tagOpt.get();
-        double distError = tag.distanceErrorMeters();
+        double error = tag.get().distanceErrorMeters();
+        double vx = pid.calculate(error, 0.0);
 
-        double vx = m_pid.calculate(distError, 0.0);
-
-        m_latestSpeeds = new ChassisSpeeds(vx, 0, 0);
+        latest = new ChassisSpeeds(vx, 0, 0);
     }
 
     @Override
-    public ChassisSpeeds getSpeeds() {
-        return m_latestSpeeds;
+    public boolean isFinished(ADContext ctx,
+                              Optional<TargetInfo> tag,
+                              boolean enabled) {
+
+        if (!enabled || tag.isEmpty())
+            return true;
+
+        return Math.abs(tag.get().distanceErrorMeters()) <
+               metadata.finishDistanceErrorMeters;
     }
 
-    @Override
-    public boolean shouldActivate(ADContext adCtx) {
-
-        if (!adCtx.inShootMode() || !adCtx.isShootAutoDriveEnabled())
-            return false;
-
-        Optional<TargetInfo> tag = adCtx.autoDriveAgent.selectTagFor(metadata);
-        if (tag.isEmpty()) return false;
-
-        double distError = tag.get().distanceErrorMeters();
-
-        return Math.abs(distError) > metadata.activateDistanceErrorMeters;
-    }
-
-    @Override
-    public boolean isFinished() {
-        return !m_ctx.inShootMode() || !m_ctx.isShootAutoDriveEnabled();
-    }
-
-    @Override
-    public void stop() {
-        m_latestSpeeds = new ChassisSpeeds();
-    }
+    @Override public void start() {}
+    @Override public void stop() { latest = new ChassisSpeeds(); }
+    @Override public ChassisSpeeds getSpeeds() { return latest; }
 }

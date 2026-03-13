@@ -22,7 +22,7 @@ public enum ADAction {
         ADActionType.FULL,
         true,
         null,
-        m_ctx -> new ShootAimHelper(m_ctx)
+        m_ctx -> new ShootAimHelper(m_ctx, AdMetadataLibrary.SHOOT_AIM)
     ),
 
     SHOOT_AUTO_RANGE(
@@ -30,7 +30,7 @@ public enum ADAction {
         ADActionType.FULL,
         true,
         null,
-        m_ctx -> new ShootRangeHelper(m_ctx)
+        m_ctx -> new ShootRangeHelper(m_ctx, AdMetadataLibrary.SHOOT_RANGE)
     ),
 
     SHOOT_AUTO_STRAFE(
@@ -38,7 +38,7 @@ public enum ADAction {
         ADActionType.FULL,
         true,
         null,
-        m_ctx -> new ShootStrafeHelper(m_ctx)
+        m_ctx -> new ShootStrafeHelper(m_ctx, AdMetadataLibrary.SHOOT_STRAFE)
     );
 
     public final UI_Mode m_requiredMode;
