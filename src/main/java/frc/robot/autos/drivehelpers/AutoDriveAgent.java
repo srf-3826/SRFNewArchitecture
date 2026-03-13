@@ -72,10 +72,10 @@ public class AutoDriveAgent {
     }
     
     public void update() {
-
         // 1. Remove finished helpers
         m_activeHelpers.removeIf(h -> {
-            if (h.m_helper.isFinished()) {
+            Optional<TargetInfo> tag = selectTagFor(h.m_owner.m_adMetadata);
+            if (h.m_helper.isFinished(m_adCtx, tag, m_autoDriveHelpersOK)) {
                 h.m_helper.stop();
                 return true;
             }
@@ -84,19 +84,17 @@ public class AutoDriveAgent {
 
         // 2. Loop over all ADAction values
         for (ADAction action : ADAction.values()) {
-
-            if (!action.m_isAutoStart) continue;
-            if (action == ADAction.NONE) continue;
+            if (!action.m_isAutoStart || (action == ADAction.NONE)) continue;
             if (action.m_requiredMode != m_adCtx.modeManager.getMode()) continue;
 
             ContinuousAction helper = action.m_helperFactory.apply(m_adCtx);
-
             Optional<TargetInfo> tag = selectTagFor(action.m_adMetadata);
             if (!helper.shouldActivate(m_adCtx, tag, m_autoDriveHelpersOK)) continue;
+
             if (hasHelperOfType(helper.getClass())) continue;
 
             helper.start();
-            m_activeHelpers.add(new OwnedHelper(action, helper, selectTagFor(action.m_adMetadata)));
+            m_activeHelpers.add(new OwnedHelper(action, helper, tag));
         }
 
         // 3. Update all active helpers
@@ -119,7 +117,6 @@ public class AutoDriveAgent {
             vy += s.vyMetersPerSecond;
             omega += s.omegaRadiansPerSecond;
         }
-
         return new ChassisSpeeds(vx, vy, omega);
     }
 

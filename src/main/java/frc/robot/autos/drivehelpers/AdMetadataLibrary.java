@@ -6,7 +6,7 @@ public final class AdMetadataLibrary {
     //  SHOOT MODE HELPERS
     //  (You can adjust these if your vision system uses a different mapping)
     //
-    private static final int[] SPEAKER_TAGS = { 4, 7, 8 };
+    private static final int[] HUB_GOAL_TAGS = { 9, 10, 25, 26 };
 
     //
     // SHOOT_AUTO_AIM
@@ -16,8 +16,11 @@ public final class AdMetadataLibrary {
     //
     public static final ADHelperMetadata SHOOT_AIM =
         new ADHelperMetadata(
-            SPEAKER_TAGS,
+            HUB_GOAL_TAGS,
             ADHelperMetadata.TagSelectionMode.NEAREST,
+            1.0,
+            0.0,
+            0.0,
             2.0,   // activate heading error (deg)
             0.0,   // activate distance error (unused)
             0.0,   // activate lateral error (unused)
@@ -34,8 +37,11 @@ public final class AdMetadataLibrary {
     //
     public static final ADHelperMetadata SHOOT_RANGE =
         new ADHelperMetadata(
-            SPEAKER_TAGS,
+            HUB_GOAL_TAGS,
             ADHelperMetadata.TagSelectionMode.NEAREST,
+            1.0,
+            0.0,
+            0.0,
             0.0,   // activate heading error (unused)
             0.30,  // activate distance error (meters)
             0.0,   // activate lateral error (unused)
@@ -52,8 +58,11 @@ public final class AdMetadataLibrary {
     //
     public static final ADHelperMetadata SHOOT_STRAFE =
         new ADHelperMetadata(
-            SPEAKER_TAGS,
+            HUB_GOAL_TAGS,
             ADHelperMetadata.TagSelectionMode.NEAREST,
+            1.0,
+            0.0,
+            0.0,
             0.0,
             0.0,
             0.15,  // activate lateral error (meters)

@@ -64,7 +64,7 @@ public class RobotContainer {
 
     // Declare AutoDriveAssist members
     private ADContext                   m_adCtx;
-    private AutoDriveAgent              m_autoDriveAgent;
+    private AutoDriveAgent              m_adAgent;
 
     // Declare choosable autonomous Commands and any other Commands used with ButtonBindings
     private DoNothingCmd                m_doNothingCmd;
@@ -93,19 +93,8 @@ public class RobotContainer {
         m_adCtx = new ADContext( m_swerveSubsystem,
                                  m_visionSubsystem,
                                  m_modeManager);
-        m_autoDriveAgent = new AutoDriveAgent(m_adCtx);
+        m_adAgent = new AutoDriveAgent(m_adCtx);
 
-        // Commands
-        m_swerveSubsystem.setDefaultCommand(new DefaultDriveCmd(m_xbox, 
-                                                m_swerveSubsystem));
-        // DoNothing Cmd is a placeholder for Auto routines
-        m_doNothingCmd = new DoNothingCmd();
- 
-        // Park Cmd exits on any joystick input, so need to pass it all joystick input lambdas
-        m_parkCmd = new SwerveParkCmd(m_swerveSubsystem,
-                                      () -> -m_xbox.getLeftY(),
-                                      () -> -m_xbox.getLeftX(),
-                                      () -> -m_xbox.getRightX());
         /*
             Polling UI Support
         */
@@ -116,7 +105,7 @@ public class RobotContainer {
         
         m_ctx = new UIContext( 
             m_swerveSubsystem,
-            m_autoDriveAgent,
+            m_adAgent,
             m_intakeSubsystem,
             m_shooterSubsystem,
             m_climberSubsystem,
@@ -128,6 +117,26 @@ public class RobotContainer {
 
         /*
          * AutoDriveAssist support
+         */
+        m_adCtx = new ADContext(m_swerveSubsystem, m_visionSubsystem, m_modeManager);
+        m_adAgent = new AutoDriveAgent(m_adCtx); 
+         /*
+          * Commands
+          */
+        m_swerveSubsystem.setDefaultCommand(new DefaultDriveCmd(m_xbox, 
+                                                                m_swerveSubsystem,
+                                                                m_adAgent));
+        // DoNothing Cmd is a placeholder for Auto routines
+        m_doNothingCmd = new DoNothingCmd();
+ 
+        // Park Cmd exits on any joystick input, so need to pass it all joystick input lambdas
+        m_parkCmd = new SwerveParkCmd(m_swerveSubsystem,
+                                      () -> -m_xbox.getLeftY(),
+                                      () -> -m_xbox.getLeftX(),
+                                      () -> -m_xbox.getRightX());
+
+        /*
+         * Auto routine selector
          */
         m_autoRoutineChooser.setDefaultOption("Do nothing", m_doNothingCmd);
         SmartDashboard.putData("Autonomous Selection:", m_autoRoutineChooser);
@@ -171,7 +180,7 @@ public class RobotContainer {
         }
 
         // ensure Auto Drive Assist helpers stay up to date
-        m_autoDriveAgent.update();
+        m_adAgent.update();
 
         // Now ensure all StatusSignals stay up to date.
         m_gyroIO.update();

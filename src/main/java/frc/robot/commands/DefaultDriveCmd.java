@@ -3,6 +3,7 @@ package frc.robot.commands;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.Constants.*;
 import frc.robot.subsystems.*;
+import frc.robot.autos.drivehelpers.AutoDriveAgent;
 import frc.robot.autos.drivehelpers.DriveBlender;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
@@ -15,13 +16,15 @@ public class DefaultDriveCmd extends Command {
     private CommandXboxController           m_xbox;
     private DriveBlender                    m_driveBlender = new DriveBlender(); 
     private SwerveSubsystem                 m_swerveDrive;
+    private AutoDriveAgent                  m_adAgent;
     // Optional: uncomment here and below if slew rate limiting is desired
     // private SlewRateLimiter                 m_translateSRLimiter;
     // private SlewRateLimiter                 m_strafeSRLimiter;
     // private SlewRateLimiter                 m_rotateSRLimiter;
 
     public DefaultDriveCmd( CommandXboxController xbox,
-                            SwerveSubsystem swerveDriveSubsys) {
+                            SwerveSubsystem swerveDriveSubsys,
+                            AutoDriveAgent adAgent) {
         m_xbox = xbox;
         m_swerveDrive = swerveDriveSubsys;
         addRequirements(swerveDriveSubsys);
@@ -51,7 +54,7 @@ public class DefaultDriveCmd extends Command {
                                                        rotateVal * SDC.MAX_ROBOT_ANG_VEL_RAD_PER_SEC);
     
         // Fetch any autoSpeeds that may be active (again meters and radians per sec, will be 0.0 if none)
-        ChassisSpeeds autoSpeeds = m_swerveDrive.getAutoDriveAgent().getAutoDriveAssistSpeeds();
+        ChassisSpeeds autoSpeeds = m_adAgent.getAutoDriveAssistSpeeds();
 
         // Blend the manual and auto speeds (all robot relative at this point)
         // If field relative speeds are needed the conversion will be done by swerve.drive() 

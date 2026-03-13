@@ -12,15 +12,20 @@ public class ADHelperMetadata {
     // Whether to use nearest, farthest, or first valid tag
     public final TagSelectionMode tagSelectionMode;
 
+    // PID control factors
+    public final double kP;
+    public final double kI;
+    public final double kD;
+
     // Error thresholds for activation
     public final double activateHeadingErrorDeg;
     public final double activateDistanceErrorMeters;
     public final double activateLateralErrorMeters;
 
     // Error thresholds for deactivation (hysteresis)
-    public final double deactivateHeadingErrorDeg;
-    public final double deactivateDistanceErrorMeters;
-    public final double deactivateLateralErrorMeters;
+    public final double finishHeadingErrorDeg;
+    public final double finishDistanceErrorMeters;
+    public final double finishLateralErrorMeters;
 
     // Helper type (rotation, translation, full)
     public final ADAction.ADActionType helperType;
@@ -28,22 +33,28 @@ public class ADHelperMetadata {
     public ADHelperMetadata(
         int[] requiredTagIds,
         TagSelectionMode tagSelectionMode,
+        double kP,
+        double kI,
+        double kD,
         double activateHeadingErrorDeg,
         double activateDistanceErrorMeters,
         double activateLateralErrorMeters,
-        double deactivateHeadingErrorDeg,
-        double deactivateDistanceErrorMeters,
-        double deactivateLateralErrorMeters,
+        double finishHeadingErrorDeg,
+        double finishDistanceErrorMeters,
+        double finishLateralErrorMeters,
         ADAction.ADActionType helperType
     ) {
         this.requiredTagIds = requiredTagIds;
         this.tagSelectionMode = tagSelectionMode;
+        this.kP = kP;
+        this.kI = kI;
+        this.kD = kD;
         this.activateHeadingErrorDeg = activateHeadingErrorDeg;
         this.activateDistanceErrorMeters = activateDistanceErrorMeters;
         this.activateLateralErrorMeters = activateLateralErrorMeters;
-        this.deactivateHeadingErrorDeg = deactivateHeadingErrorDeg;
-        this.deactivateDistanceErrorMeters = deactivateDistanceErrorMeters;
-        this.deactivateLateralErrorMeters = deactivateLateralErrorMeters;
+        this.finishHeadingErrorDeg = finishHeadingErrorDeg;
+        this.finishDistanceErrorMeters = finishDistanceErrorMeters;
+        this.finishLateralErrorMeters = finishLateralErrorMeters;
         this.helperType = helperType;
     }
 
