@@ -51,7 +51,9 @@ public class ModeManager {
     public void setMode(UI_Mode newMode) {
         if (newMode == m_mode) return;
             
-        // If leaving DEFENSE, ensure robot is not going to be left in GO_SLOW state
+        System.out.println("Mode change - From: "+m_mode.toString()+" to: "+newMode.toString());
+
+        // If DEFENSE, ensure robot is not going to be left in GO_SLOW state
         if (m_mode == UI_Mode.DEFENSE) {
             m_systemActions.emit(Action.DEFENSE_GO_FAST);
         }

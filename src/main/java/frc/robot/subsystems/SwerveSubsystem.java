@@ -158,7 +158,7 @@ public class SwerveSubsystem extends SubsystemBase {
         SwerveDriveKinematics.desaturateWheelSpeeds(swerveModuleStates, 
                                                     SDC.MAX_ROBOT_SPEED_M_PER_SEC);
         for (SwerveModule mod : m_swerveMods) {
-            mod.setDesiredState(swerveModuleStates[mod.m_modNum], isOpenLoop);
+            mod.setDesiredState(swerveModuleStates[mod.getModNum()], isOpenLoop);
         }
     }
 
@@ -167,7 +167,7 @@ public class SwerveSubsystem extends SubsystemBase {
         SwerveDriveKinematics.desaturateWheelSpeeds(desiredStates, SDC.MAX_ROBOT_SPEED_M_PER_SEC);
         
         for(SwerveModule mod : m_swerveMods){
-            mod.setDesiredState(desiredStates[mod.m_modNum], false);
+            mod.setDesiredState(desiredStates[mod.getModNum()], false);
         }
     }    
 
@@ -219,7 +219,7 @@ public class SwerveSubsystem extends SubsystemBase {
     public SwerveModuleState[] getModuleStates(){
         SwerveModuleState[] states = new SwerveModuleState[4];
         for(SwerveModule mod : m_swerveMods){
-            states[mod.m_modNum] = mod.getState();
+            states[mod.getModNum()] = mod.getState();
         }
         return states;
     }
@@ -227,7 +227,7 @@ public class SwerveSubsystem extends SubsystemBase {
     public SwerveModulePosition[] getModulePositions(){
         SwerveModulePosition[] positions = new SwerveModulePosition[4];
         for(SwerveModule mod : m_swerveMods){
-            positions[mod.m_modNum] = mod.getModulePosition();
+            positions[mod.getModNum()] = mod.getModulePosition();
         }
         return positions;
     }
@@ -458,7 +458,7 @@ public class SwerveSubsystem extends SubsystemBase {
     // but could be useful for other purposes.
     public void rotateModulesToAngles( double angleDeg[] ) {
         for(SwerveModule mod : m_swerveMods) {
-            mod.setAngle(angleDeg[mod.m_modNum] );
+            mod.setAngle(angleDeg[mod.getModNum()] );
         }
     }
 }

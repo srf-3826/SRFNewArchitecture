@@ -6,6 +6,12 @@ package frc.robot;
 
 
 import com.ctre.phoenix6.SignalLogger;
+/*
+import org.littletonrobotics.junction.Logger;
+import org.littletonrobotics.junction.networktables.NT4Publisher;
+import org.littletonrobotics.junction.wpilog.WPILOGWriter;
+import org.littletonrobotics.junction.inputs.LoggedPowerDistribution;
+*/
 
 import edu.wpi.first.wpilibj.TimedRobot;
 
@@ -24,16 +30,31 @@ public class Robot extends TimedRobot {
   private RobotContainer m_robotContainer;
   
   private static boolean m_ctreLoggerActive = false;
+ 
   /**
-   * This function is run when the robot is first started up and should be used for any
-   * initialization code.
+   * The robotInit method is run exactly once when the robot is first 
+   * started up and should be used for any system wide initialization code.
+   * @param Logger 
    */
   @Override
   public void robotInit() {
+  /*
+  public void robotInit(Object Logger) {  // use this for AdvantageKit Logging
+    Logger.recordMetadata("ProjectName", "MyRobot");
+    Logger.recordMetadata("GitSHA", BuildConstants.GIT_SHA);
+
+    Logger.addDataReceiver(new WPILOGWriter("/media/sda1/")); // USB stick
+    Logger.addDataReceiver(new NT4Publisher());
+
+    Logger.start();
+*/
     // Instantiate our RobotContainer.  This will perform all our button bindings, and put our
     // autonomous chooser on the dashboard.
     m_robotContainer = new RobotContainer();
   }
+
+  // CTRE signal logging package. Uncomment these methods if CTRE Logging
+  // is desired over AdvantageKit Logging (not really recommended).
 
   public static void startCtreSignalLogger() {
     // Start CTRE Logger with the default path - which is the first USB Flash 

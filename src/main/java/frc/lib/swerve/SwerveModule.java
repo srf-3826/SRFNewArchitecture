@@ -2,6 +2,7 @@ package frc.lib.swerve;
 
 import frc.lib.sensors.Phoenix6SignalAdapters;
 import frc.robot.Constants.*;
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
@@ -25,11 +26,11 @@ import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardLayout;
 
 public class SwerveModule {
 
-    public final int m_modNum;
+    private final int m_modNum;
     private final SwerveModuleConstants m_moduleConstants;
 
-    private final TalonFX m_steerMotor;
-    private final TalonFX m_driveMotor;
+    private final TalonFX  m_steerMotor;
+    private final TalonFX  m_driveMotor;
     private final CANcoder m_absWheelAngleCANcoder;
 
     //
@@ -39,29 +40,29 @@ public class SwerveModule {
     // Those without the m_ prefix are wrapped in a Phoenix6SignalAdapter 
     // helper object (instantiated in the constructor for this SwerveModule).
     //
-    private final StatusSignal<Angle> steerPosSignal;
-    private final StatusSignal<Double> m_sMotorOutStatusSignal;
-    private final StatusSignal<Temperature> m_steerTempSignal;
-    private final StatusSignal<Current> m_steerCurrentSignal;
-    private final StatusSignal<Angle> absPosSignal;
-    private final StatusSignal<Angle> drivePosSignal;
+    private final StatusSignal<Angle>           steerPosSignal;
+    private final StatusSignal<Double>          m_sMotorOutStatusSignal;
+    private final StatusSignal<Temperature>     m_steerTempSignal;
+    private final StatusSignal<Current>         m_steerCurrentSignal;
+    private final StatusSignal<Angle>           absPosSignal;
+    private final StatusSignal<Angle>           drivePosSignal;
     private final StatusSignal<AngularVelocity> driveVelSignal;
-    private final StatusSignal<Temperature> m_driveTempSignal;
-    private final StatusSignal<Current> m_driveCurrentSignal;
+    private final StatusSignal<Temperature>     m_driveTempSignal;
+    private final StatusSignal<Current>         m_driveCurrentSignal;
 
-    private final Phoenix6SignalAdapters.AngleSignal m_steerPosSignal;
-    private final Phoenix6SignalAdapters.DriveSignals m_driveSignals;
-    private final Phoenix6SignalAdapters.AngleSignal m_absWheelPosSignal;
+    private final Phoenix6SignalAdapters.AngleSignal    m_steerPosSignal;
+    private final Phoenix6SignalAdapters.DriveSignals   m_driveSignals;
+    private final Phoenix6SignalAdapters.AngleSignal    m_absWheelPosSignal;
 
-    private double m_lastAngleDeg;
-    private double m_velocityFeedForward;
-
-    private final DutyCycleOut m_driveOpenLoop = new DutyCycleOut(0.0).withUpdateFreqHz(0);
+    private final DutyCycleOut    m_driveOpenLoop   = new DutyCycleOut(0.0).withUpdateFreqHz(0);
     private final VelocityVoltage m_driveClosedLoop = new VelocityVoltage(0.0);
     private final PositionVoltage m_steerClosedLoop = new PositionVoltage(0.0);
 
-    private final SimpleMotorFeedforward feedforward =
+    private final SimpleMotorFeedforward m_feedforward =
         new SimpleMotorFeedforward(SDC.DRIVE_KS, SDC.DRIVE_KV, SDC.DRIVE_KA);
+
+    private double m_lastAngleDeg;
+    private double m_velocityFeedForward;
 
     // Shuffleboard entries
     private GenericEntry steerSetpointDegEntry;
@@ -127,6 +128,13 @@ public class SwerveModule {
     }
 
     // -----------------------------
+    // modNum getter
+    // -----------------------------
+    public int getModNum() {
+        return m_modNum;
+    }
+    
+    // -----------------------------
     // Control Methods
     // -----------------------------
     public void setDesiredState(SwerveModuleState desiredState, boolean isOpenLoop) {
@@ -153,28 +161,27 @@ public class SwerveModule {
         // i.e. reduce the calculated desired speed for this module when the wheel is 
         // currently not pointing in the desired direction, proportional to the cosine 
         // of the angle error.
-        // TODO: TEST how this new cosine correction affects robot maneuverability.
         desiredState.speedMetersPerSecond *= desiredState.angle.minus(currentAngle2d).getCos();
         setSpeed(desiredState, isOpenLoop);
     }
 
     private void setSpeed(SwerveModuleState desiredState, boolean isOpenLoop) {
         if (isOpenLoop) {
-            // Just use duty cycle out
-            m_driveOpenLoop.Output =
-                desiredState.speedMetersPerSecond / SDC.MAX_ROBOT_SPEED_M_PER_SEC;
+            // Just use duty cycle out. Theoretically, clamping should be unnecessary since
+            // speeds have already been normalized, but it provides insurance against
+            // rounding errors. 
+            m_driveOpenLoop.Output = MathUtil.clamp(desiredState.speedMetersPerSecond / 
+                                                    SDC.MAX_ROBOT_SPEED_M_PER_SEC,
+                                                    -1.0,
+                                                    1.0);
             m_driveMotor.setControl(m_driveOpenLoop);
         } else {
             // Closed loop, so use velocity PID with feed forward to control output
             // based on m/sec converted to Talon Rotations / sec
-            m_driveClosedLoop.Velocity =
-                desiredState.speedMetersPerSecond * SDC.MPS_TO_TALONFX_RPS_FACTOR;
-
-            // The old FF calculate(vel)) method has been deprecated
-            // use calculateWithVelocities(currentVel, nextVel) instead
-            m_velocityFeedForward =
-                feedforward.calculateWithVelocities(getVelocityMPS(), desiredState.speedMetersPerSecond);
-
+            m_driveClosedLoop.Velocity = desiredState.speedMetersPerSecond * 
+                                         SDC.MPS_TO_TALONFX_RPS_FACTOR;
+            m_velocityFeedForward = m_feedforward.calculateWithVelocities(getVelocityMPS(), 
+                                                                          desiredState.speedMetersPerSecond);
             m_driveMotor.setControl(
                 m_driveClosedLoop.withFeedForward(m_velocityFeedForward)
             );
@@ -186,6 +193,12 @@ public class SwerveModule {
             desiredAngleDeg * SDC.ANGLE_TO_ROTATION_FACTOR;
         m_steerMotor.setControl(m_steerClosedLoop);
         m_lastAngleDeg = desiredAngleDeg;
+    }
+
+    public void stop() {
+        m_driveOpenLoop.Output = 0.0;
+        m_driveMotor.setControl(m_driveOpenLoop);
+        m_steerMotor.stopMotor();
     }
 
     // -----------------------------
@@ -436,11 +449,5 @@ public class SwerveModule {
         steerTempEntry.setString(F.df1.format(m_steerTempSignal.getValueAsDouble()));
         wheelCurrPosEntry.setString(F.df2.format(getPositionM()));
         wheelCurrSpeedEntry.setString(F.df1.format(getVelocityMPS()));
-    }
-
-    public void stop() {
-        m_driveOpenLoop.Output = 0.0;
-        m_driveMotor.setControl(m_driveOpenLoop);
-        m_steerMotor.stopMotor();
     }
 }

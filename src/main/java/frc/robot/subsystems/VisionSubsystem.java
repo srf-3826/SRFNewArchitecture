@@ -37,8 +37,7 @@ public class VisionSubsystem extends ActionableSubsystem {
         Pose3d camPose = new Pose3d();
         setCameraPos(camPose,
                      camPose.getRotation());
-        // TODO: replace with current aprilTagLayoutFieldt
-        m_aprilTagFieldLayout = AprilTagFields.k2024Crescendo.loadAprilTagLayoutField();
+        m_aprilTagFieldLayout = AprilTagFields.k2026RebuiltWelded.loadAprilTagLayoutField();
     }
 
     public void setCameraPos(Pose3d position, Rotation3d rotation)
@@ -240,11 +239,31 @@ public class VisionSubsystem extends ActionableSubsystem {
         return Math.abs(ty) > 0.05;  // 5 cm threshold
     }
 
-    public class PoseClass
-    {
-        public Pose2d getBotPose()
-        {
-            return m_poseEstimator.getEstimatedPosition();
-        }
+    public Pose2d getBotPose() {
+        return m_poseEstimator.getEstimatedPosition();
     }
+    
+    /*
+     * From https://docs.limelightvision.io/docs/docs-limelight/pipeline-apriltag/apriltag-robot-localization
+     * 
+
+    LimelightHelpers.PoseEstimate mt1 = LimelightHelpers.getBotPoseEstimate_wpiBlue("limelight") {
+      
+      if(mt1.tagCount == 1 && mt1.rawFiducials.length == 1) {
+        if(mt1.rawFiducials[0].ambiguity > .7) {
+          doRejectUpdate = true;
+        }
+        if(mt1.rawFiducials[0].distToCamera > 3) {
+          doRejectUpdate = true;
+        }
+      }
+      if(mt1.tagCount == 0) {
+        doRejectUpdate = true;
+      }
+
+      if(!doRejectUpdate) {
+        m_poseEstimator.setVisionMeasurementStdDevs(VecBuilder.fill(.5,.5,9999999));
+        m_poseEstimator.addVisionMeasurement(mt1.pose, mt1.timestampSeconds);
+      }
+    */
 }

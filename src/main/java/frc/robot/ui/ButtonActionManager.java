@@ -18,6 +18,7 @@ public class ButtonActionManager {
     // Any new Actions are obtained by ActionManager on the rising edge
     public Action getRisingEdge() {
         if (m_current != m_previous && m_current != null) {
+            System.out.println("Button "+""+" pressed");
             return m_current;
         }
         return null;
@@ -26,6 +27,7 @@ public class ButtonActionManager {
     // Terminating Actions are not obtained by ActionManager until the falling edge
     public Action getFallingEdge() {
         if (m_current != m_previous && m_previous != null) {
+            System.out.println("Button "+""+" released");
             return m_previous;
         }
         return null;
